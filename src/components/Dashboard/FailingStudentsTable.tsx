@@ -3,7 +3,7 @@ import { AlertTriangle, ChevronRight } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { getStatusBadgeClass, getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { PAGE_ROUTES } from '@/lib/constants';
-import { StudentAvatar } from '@/components/students/StudentAvatar';
+import { StudentAvatar } from '@/components/Students/StudentAvatar';
 
 interface FailingStudentsTableProps {
   students: StudentWithRelations[];

@@ -115,5 +115,8 @@ export const followUpApi = {
 
 // Dashboard endpoints
 export const dashboardApi = {
-  getStats: () => apiClient.get('/api/dashboard'),
+  getStats: () => apiClient.get('/api/dashboard/stats'),
+  getFailingStudents: (page: number = 1, limit: number = 10) =>
+    apiClient.get(`/api/dashboard/failing-students?page=${page}&limit=${limit}`),
+  getAssignmentStats: () => apiClient.get('/api/dashboard/assignment-stats'),
 };

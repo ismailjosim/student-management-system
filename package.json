@@ -9,8 +9,8 @@
     "lint": "eslint",
     "format": "prettier --write '**/*.{ts,tsx,json}'",
     "type-check": "tsc --noEmit",
-    "db:seed": "ts-node -O '{\"module\":\"commonjs\"}' scripts/seed.ts",
-    "db:init": "ts-node -O '{\"module\":\"commonjs\"}' scripts/init.ts",
+    "db:seed": "ts-node scripts/seed.ts",
+    "db:init": "ts-node scripts/init.ts",
     "schema:version": "1.0.0"
   },
   "dependencies": {

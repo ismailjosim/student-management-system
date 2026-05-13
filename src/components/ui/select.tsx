@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Select as SelectPrimitive } from 'radix-ui';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/cn';
 import { IconSelector, IconCheck, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {

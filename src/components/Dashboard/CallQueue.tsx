@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Phone, ChevronRight } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
-import { StudentAvatar } from '@/components/students/StudentAvatar';
+import { StudentAvatar } from '@/components/Students/StudentAvatar';
 
 interface CallQueueProps {
   students: StudentWithRelations[];

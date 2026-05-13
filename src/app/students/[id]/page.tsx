@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { DEMO_STUDENTS, DEMO_ASSIGNMENTS, DEMO_CALL_LOGS, DEMO_FOLLOW_UPS } from '@/lib/demo-data';
-import { StudentProfileCard } from '@/components/students/StudentProfileCard';
-import { AssignmentChecklist } from '@/components/students/AssignmentChecklist';
-import { CallLogSection } from '@/components/students/CallLogSection';
-import { FollowUpSection } from '@/components/students/FollowUpSection';
+import { StudentProfileCard } from '@/components/Students/StudentProfileCard';
+import { AssignmentChecklist } from '@/components/Students/AssignmentChecklist';
+import { CallLogSection } from '@/components/Students/CallLogSection';
+import { FollowUpSection } from '@/components/Students/FollowUpSection';
 import { PAGE_ROUTES } from '@/lib/constants';
 
 interface StudentDetailPageProps {

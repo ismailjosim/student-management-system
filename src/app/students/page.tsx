@@ -1,5 +1,5 @@
 import { DEMO_STUDENTS } from '@/lib/demo-data';
-import { StudentsTable } from '@/components/students/StudentsTable';
+import { StudentsTable } from '@/components/Students/StudentsTable';
 import { FileUp, Plus } from 'lucide-react';
 
 export default function StudentsPage() {
