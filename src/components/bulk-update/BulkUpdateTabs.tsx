@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Zap, UserPlus, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Zap, UserPlus, CheckCircle2, XCircle, Upload, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { cn } from '@/lib/cn';
+import { processAssignmentImportFile } from '@/lib/file-parser';
 
 type Tab = 'assignment' | 'student';
 
@@ -12,31 +14,24 @@ interface BulkResult {
   unmatchedEmails: string[];
 }
 
-// Demo student emails for matching simulation
-const DEMO_EMAILS = [
-  'john@example.com',
-  'jane@example.com',
-  'robert@example.com',
-  'emily@example.com',
-  'marcus@example.com',
-  'priya@example.com',
-  'amir@example.com',
-  'sara@example.com',
-];
-
 const ASSIGNMENTS = Array.from({ length: 10 }, (_, i) => ({
   value: i + 1,
-  label: `Assignment ${String(i + 1).padStart(2, '0')}`,
+  label: `A-${String(i + 1).padStart(2, '0')}`,
 }));
 
 export function BulkUpdateTabs() {
   const [activeTab, setActiveTab] = useState<Tab>('assignment');
   const [result, setResult] = useState<BulkResult | null>(null);
   const [committed, setCommitted] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   // Assignment update state
-  const [assignmentNum, setAssignmentNum] = useState(8);
+  const [assignmentNum, setAssignmentNum] = useState(1);
   const [emailsText, setEmailsText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
 
   // Student upsert state
   const [studentData, setStudentData] = useState('');
@@ -47,35 +42,139 @@ export function BulkUpdateTabs() {
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);
 
-  const handleProcessAssignment = () => {
-    const emails = parseEmails(emailsText);
-    if (emails.length === 0) return;
-
-    const matched = emails.filter((e) => DEMO_EMAILS.includes(e));
-    const unmatchedEmails = emails.filter((e) => !DEMO_EMAILS.includes(e));
-    setResult({ matched: matched.length, unmatched: unmatchedEmails.length, unmatchedEmails });
-    setCommitted(false);
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
   };
 
-  const handleCommitAssignment = () => {
-    // In production: call assignmentApi.bulkUpdate({ emails, assignmentNumber: assignmentNum })
-    console.log('Committing bulk assignment update:', {
-      assignmentNum,
-      emails: parseEmails(emailsText),
-    });
-    setCommitted(true);
-    setResult(null);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = e.dataTransfer.files;
+    if (files?.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleFileSelect = (selectedFile: File) => {
+    if (!selectedFile.name.match(/\.(csv|xlsx)$/i)) {
+      toast.error('File must be CSV or XLSX format');
+      return;
+    }
+
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast.error('File size must be under 5MB');
+      return;
+    }
+
+    setFile(selectedFile);
     setEmailsText('');
   };
 
-  const handleProcessStudents = () => {
-    const lines = studentData
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
-    // In production: parse CSV and call studentApi bulk upsert
-    console.log('Processing student upsert for', lines.length, 'rows');
-    setCommitted(true);
+  const handleProcessAssignment = async () => {
+    try {
+      setProcessing(true);
+      setError(null);
+
+      let emails: string[] = [];
+
+      // Process file or text input
+      if (file) {
+        const fileData = await processAssignmentImportFile(file);
+        emails = fileData.validEmails;
+        if (fileData.invalidRows.length > 0) {
+          setError(`${fileData.invalidRows.length} invalid rows found`);
+        }
+      } else {
+        emails = parseEmails(emailsText);
+        if (emails.length === 0) {
+          setError('Please enter at least one email');
+          return;
+        }
+      }
+
+      // Mock matching - in production would call API
+      const matchedCount = Math.floor(emails.length * 0.8);
+      const unmatchedEmails = emails.slice(matchedCount);
+
+      setResult({
+        matched: matchedCount,
+        unmatched: unmatchedEmails.length,
+        unmatchedEmails,
+      });
+      setCommitted(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to process file';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCommitAssignment = async () => {
+    try {
+      setProcessing(true);
+      const emails = file
+        ? await processAssignmentImportFile(file).then((f) => f.validEmails)
+        : parseEmails(emailsText);
+
+      // In production: Call API
+      // const response = await fetch('/api/assignments/bulk-submit', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ emails, assignmentNumber: assignmentNum })
+      // })
+
+      toast.success(
+        `Successfully updated ${result?.matched ?? 0} students for ${ASSIGNMENTS[assignmentNum - 1].label}`
+      );
+      setCommitted(true);
+      setResult(null);
+      setEmailsText('');
+      setFile(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to commit update';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleProcessStudents = async () => {
+    try {
+      setProcessing(true);
+      setError(null);
+
+      const lines = studentData
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter(Boolean);
+
+      if (lines.length === 0) {
+        setError('Please enter at least one student record');
+        return;
+      }
+
+      // In production: Parse CSV and call studentApi bulk upsert
+      toast.success(`Processing ${lines.length} student records`);
+      setCommitted(true);
+      setStudentData('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to process students';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -114,9 +213,16 @@ export function BulkUpdateTabs() {
             <CheckCircle2 className="w-5 h-5 shrink-0" />
             <span className="font-medium">
               {activeTab === 'assignment'
-                ? `Successfully updated ${result?.matched ?? 0} students for Assignment ${String(assignmentNum).padStart(2, '0')}.`
+                ? `Successfully updated ${result?.matched ?? 0} students for ${ASSIGNMENTS[assignmentNum - 1].label}.`
                 : 'Student records processed successfully.'}
             </span>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="font-medium">{error}</span>
           </div>
         )}
 
@@ -127,7 +233,8 @@ export function BulkUpdateTabs() {
               <select
                 value={assignmentNum}
                 onChange={(e) => setAssignmentNum(Number(e.target.value))}
-                className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full md:w-64"
+                disabled={processing}
+                className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full md:w-64 disabled:opacity-50"
               >
                 {ASSIGNMENTS.map((a) => (
                   <option key={a.value} value={a.value}>
@@ -137,10 +244,75 @@ export function BulkUpdateTabs() {
               </select>
             </div>
 
+            {/* File Upload Zone */}
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                dragActive
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted-foreground/20 hover:border-primary/50'
+              } ${file ? 'bg-green-50 border-green-300' : ''}`}
+            >
+              {file ? (
+                <div className="flex items-center gap-2 justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-green-600">{file.name}</p>
+                    <p className="text-xs text-green-500">
+                      {parseEmails(emailsText).length} emails ready
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Upload className="w-6 h-6 text-muted-foreground mx-auto" />
+                  <div>
+                    <p className="text-sm font-medium">Drag file here or click to select</p>
+                    <p className="text-xs text-muted-foreground">CSV or Excel</p>
+                  </div>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    handleFileSelect(e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+              />
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">
+                Or paste emails below (one per line)
+              </span>
+              {file && (
+                <button
+                  onClick={() => {
+                    setFile(null);
+                    setResult(null);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline"
+                >
+                  Clear file
+                </button>
+              )}
+            </div>
+
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between">
                 <label className="text-sm font-semibold">Email List</label>
-                <span className="text-xs text-muted-foreground">One email per line</span>
+                <span className="text-xs text-muted-foreground">
+                  {file
+                    ? `${parseEmails(emailsText).length} emails from file`
+                    : 'One email per line'}
+                </span>
               </div>
               <textarea
                 value={emailsText}
@@ -149,56 +321,61 @@ export function BulkUpdateTabs() {
                   setResult(null);
                   setCommitted(false);
                 }}
-                placeholder={'student1@example.com\nstudent2@example.com\nstudent3@example.com'}
+                disabled={file !== null || processing}
+                placeholder={
+                  file
+                    ? 'Emails from file shown above'
+                    : 'student1@example.com\nstudent2@example.com\nstudent3@example.com'
+                }
                 rows={8}
-                className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
               />
-              <p className="text-xs text-muted-foreground">
-                {parseEmails(emailsText).length} email
-                {parseEmails(emailsText).length !== 1 ? 's' : ''} entered
-              </p>
             </div>
 
             {/* Result Preview */}
             {result && !committed && (
               <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
-                <p className="text-sm font-semibold">Confirmation Preview</p>
+                <p className="text-sm font-semibold">Preview</p>
                 <div className="flex gap-4">
                   <div className="flex items-center gap-2 text-sm text-green-700">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>
-                      <strong>{result.matched}</strong> students matched
+                      <strong>{result.matched}</strong> matched
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-red-600">
-                    <XCircle className="w-4 h-4" />
-                    <span>
-                      <strong>{result.unmatched}</strong> not found
-                    </span>
-                  </div>
+                  {result.unmatched > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-red-600">
+                      <XCircle className="w-4 h-4" />
+                      <span>
+                        <strong>{result.unmatched}</strong> not found
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {result.unmatchedEmails.length > 0 && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">
-                      Unrecognized emails:
+                      Unmatched ({result.unmatchedEmails.length}):
                     </p>
-                    <ul className="text-xs font-mono text-red-600 space-y-0.5">
+                    <div className="text-xs font-mono text-red-600 space-y-0.5 max-h-40 overflow-y-auto">
                       {result.unmatchedEmails.map((e) => (
-                        <li key={e}>{e}</li>
+                        <div key={e}>{e}</div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={handleCommitAssignment}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                    disabled={processing}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
-                    Confirm & Apply
+                    {processing ? 'Updating...' : 'Confirm & Apply'}
                   </button>
                   <button
                     onClick={() => setResult(null)}
-                    className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors"
+                    disabled={processing}
+                    className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
                   >
                     Cancel
                   </button>
@@ -210,11 +387,11 @@ export function BulkUpdateTabs() {
               <div className="flex justify-end">
                 <button
                   onClick={handleProcessAssignment}
-                  disabled={parseEmails(emailsText).length === 0}
+                  disabled={(!file && parseEmails(emailsText).length === 0) || processing}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Zap className="w-4 h-4" />
-                  Process Assignment Bulk
+                  {processing ? 'Processing...' : 'Process'}
                 </button>
               </div>
             )}

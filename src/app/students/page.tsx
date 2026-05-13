@@ -2,9 +2,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { StudentsTable } from '@/components/Students/StudentsTable';
 import { FileUp, Plus, AlertCircle } from 'lucide-react';
 import { studentApi } from '@/lib/api-client';
+import { PAGE_ROUTES } from '@/lib/constants';
 import type { StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -68,14 +70,20 @@ export default function StudentsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-2 px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors">
+          <Link
+            href={`${PAGE_ROUTES.STUDENTS}/import`}
+            className="inline-flex items-center gap-2 px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors"
+          >
             <FileUp className="w-4 h-4" />
             Import CSV
-          </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+          </Link>
+          <Link
+            href={`${PAGE_ROUTES.STUDENTS}/new`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
             <Plus className="w-4 h-4" />
             Add Student
-          </button>
+          </Link>
         </div>
       </div>
 
