@@ -1,14 +1,21 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export type CallLogStatus =
+  | 'RECEIVED'
+  | 'NOT_RECEIVED'
+  | 'PHONE_OFF'
+  | 'SWITCHED_OFF'
+  | 'FOREIGN_NUMBER';
+
 export interface CallLogDocument {
   _id?: string;
+  date: Date;
+  status: CallLogStatus;
+  notes?: string;
+  calledBy?: string;
+  issues?: string;
+  promised?: string;
   studentId: string;
-  callDate: Date;
-  duration: number;
-  notes: string;
-  nextCallDate?: Date;
-  status: 'completed' | 'missed' | 'scheduled';
-  callType: 'phone' | 'video' | 'message';
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -17,39 +24,41 @@ type CallLogDocumentWithMongoose = CallLogDocument & Document;
 
 const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
   {
+    date: {
+      type: Date,
+      required: [true, 'Call date is required'],
+      validate: {
+        validator: (value: Date) => {
+          return value <= new Date();
+        },
+        message: 'Date cannot be in the future',
+      },
+    },
+    status: {
+      type: String,
+      enum: {
+        values: ['RECEIVED', 'NOT_RECEIVED', 'PHONE_OFF', 'SWITCHED_OFF', 'FOREIGN_NUMBER'],
+        message:
+          'Status must be one of: RECEIVED, NOT_RECEIVED, PHONE_OFF, SWITCHED_OFF, FOREIGN_NUMBER',
+      },
+      required: [true, 'Call status is required'],
+    },
+    notes: String,
+    calledBy: String,
+    issues: String,
+    promised: String,
     studentId: {
       type: Schema.Types.ObjectId,
       ref: 'Student',
-      required: [true, 'Please provide a student ID'],
+      required: [true, 'Student ID is required'],
     } as unknown as typeof Schema.Types.ObjectId,
-    callDate: {
-      type: Date,
-      required: [true, 'Please provide a call date'],
-      default: Date.now,
-    },
-    duration: {
-      type: Number,
-      required: [true, 'Please provide duration in minutes'],
-      min: 0,
-    },
-    notes: {
-      type: String,
-      required: [true, 'Please provide call notes'],
-    },
-    nextCallDate: Date,
-    status: {
-      type: String,
-      enum: ['completed', 'missed', 'scheduled'],
-      default: 'completed',
-    },
-    callType: {
-      type: String,
-      enum: ['phone', 'video', 'message'],
-      required: [true, 'Please provide a call type'],
-    },
   },
   { timestamps: true }
 );
+
+// Create indexes for optimal performance
+CallLogSchema.index({ studentId: 1 });
+CallLogSchema.index({ date: -1 });
 
 export default mongoose.models.CallLog ||
   mongoose.model<CallLogDocumentWithMongoose>('CallLog', CallLogSchema);

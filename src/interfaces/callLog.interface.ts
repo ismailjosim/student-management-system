@@ -1,31 +1,39 @@
+export type CallLogStatus =
+  | 'RECEIVED'
+  | 'NOT_RECEIVED'
+  | 'PHONE_OFF'
+  | 'SWITCHED_OFF'
+  | 'FOREIGN_NUMBER';
+
 export interface CallLog {
   _id?: string;
+  date: Date;
+  status: CallLogStatus;
+  notes?: string;
+  calledBy?: string;
+  issues?: string;
+  promised?: string;
   studentId: string;
-  callDate: Date;
-  duration: number;
-  notes: string;
-  nextCallDate?: Date;
-  status: 'completed' | 'missed' | 'scheduled';
-  callType: 'phone' | 'video' | 'message';
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 export interface CallLogCreateInput {
+  date: Date;
+  status: CallLogStatus;
+  notes?: string;
+  calledBy?: string;
+  issues?: string;
+  promised?: string;
   studentId: string;
-  callDate: string | Date;
-  duration: number;
-  notes: string;
-  nextCallDate?: string | Date;
-  status?: 'completed' | 'missed' | 'scheduled';
-  callType: 'phone' | 'video' | 'message';
 }
 
 export interface CallLogUpdateInput {
-  callDate?: string | Date;
-  duration?: number;
+  date?: Date;
+  status?: CallLogStatus;
   notes?: string;
-  nextCallDate?: string | Date;
-  status?: 'completed' | 'missed' | 'scheduled';
+  calledBy?: string;
+  issues?: string;
+  promised?: string;
   callType?: 'phone' | 'video' | 'message';
 }

@@ -1,64 +1,104 @@
 import { z } from 'zod';
 
-// Student Schemas
+// Type definitions
+export type AgeRange = '16-17' | '18-19' | '20-25' | '26-30' | '31-40' | '41-50' | '50+';
+export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
+export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
+export type LastCompletedAssignment =
+  | 'A-01'
+  | 'A-02'
+  | 'A-03'
+  | 'A-04'
+  | 'A-05'
+  | 'A-06'
+  | 'A-07'
+  | 'A-08'
+  | 'A-09'
+  | 'A-10'
+  | 'None';
+export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'NOT_DEFINED';
+export type CallLogStatus =
+  | 'RECEIVED'
+  | 'NOT_RECEIVED'
+  | 'PHONE_OFF'
+  | 'SWITCHED_OFF'
+  | 'FOREIGN_NUMBER';
+
+// ==================== STUDENT SCHEMAS ====================
+
 export const StudentCreateSchema = z.object({
   name: z.string().min(1, 'Name is required').trim(),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').toLowerCase().trim(),
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-  enrollmentDate: z.string().or(z.date()),
-  status: z.enum(['active', 'inactive', 'graduated', 'dropped']).optional(),
-  currentGrade: z.number().min(0).max(100).optional(),
-  address: z.string().optional(),
-  parentName: z.string().optional(),
-  parentPhone: z.string().optional(),
-  notes: z.string().optional(),
+  whatsapp: z.string().optional(),
+  division: z.string().optional(),
+  district: z.string().optional(),
+  town: z.string().optional(),
+  livingArea: z.string().optional(),
+  occupation: z.string().optional(),
+  institute: z.string().optional(),
+  educationalBackground: z.string().optional(),
+  currentYear: z.string().optional(),
+  ageRange: z.enum(['16-17', '18-19', '20-25', '26-30', '31-40', '41-50', '50+']).optional(),
+  workingDevice: z.enum(['Laptop', 'Desktop', 'Mobile']).optional(),
+  currentStatus: z.enum(['On Track', 'Behind', 'At Risk', 'Dropped', 'Completed']).optional(),
+  lastCompletedAssignment: z
+    .enum(['A-01', 'A-02', 'A-03', 'A-04', 'A-05', 'A-06', 'A-07', 'A-08', 'A-09', 'A-10', 'None'])
+    .optional(),
+  mentorshipJoiningStatus: z.boolean().optional(),
+  comments: z.array(z.string()).optional(),
 });
 
 export const StudentUpdateSchema = StudentCreateSchema.partial();
 
-// Assignment Schemas
+// ==================== ASSIGNMENT SCHEMAS ====================
+
 export const AssignmentCreateSchema = z.object({
+  assignmentNumber: z
+    .number()
+    .int('Assignment number must be an integer')
+    .min(1, 'Assignment number must be between 1 and 10')
+    .max(10, 'Assignment number must be between 1 and 10'),
+  status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED', 'NOT_DEFINED']).optional(),
+  completedDate: z.date().optional(),
+  notes: z.string().optional(),
   studentId: z.string().min(1, 'Student ID is required'),
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
-  dueDate: z.string().or(z.date()),
-  status: z.enum(['pending', 'submitted', 'graded', 'overdue']).optional(),
 });
 
-export const AssignmentUpdateSchema = AssignmentCreateSchema.partial();
+export const AssignmentUpdateSchema = AssignmentCreateSchema.partial().omit({ studentId: true });
 
-// CallLog Schemas
+// ==================== CALLLOG SCHEMAS ====================
+
 export const CallLogCreateSchema = z.object({
+  date: z.date().refine((date) => date <= new Date(), 'Date cannot be in the future'),
+  status: z.enum(['RECEIVED', 'NOT_RECEIVED', 'PHONE_OFF', 'SWITCHED_OFF', 'FOREIGN_NUMBER']),
+  notes: z.string().optional(),
+  calledBy: z.string().optional(),
+  issues: z.string().optional(),
+  promised: z.string().optional(),
   studentId: z.string().min(1, 'Student ID is required'),
-  callDate: z.string().or(z.date()),
-  duration: z.number().min(0, 'Duration must be positive'),
-  notes: z.string().min(1, 'Notes are required'),
-  nextCallDate: z.string().or(z.date()).optional(),
-  status: z.enum(['completed', 'missed', 'scheduled']).optional(),
-  callType: z.enum(['phone', 'video', 'message']),
 });
 
-export const CallLogUpdateSchema = CallLogCreateSchema.partial();
+export const CallLogUpdateSchema = CallLogCreateSchema.partial().omit({ studentId: true });
 
-// FollowUp Schemas
+// ==================== FOLLOWUP SCHEMAS ====================
+
 export const FollowUpCreateSchema = z.object({
+  date: z.date().optional(),
+  note: z.string().min(1, 'Follow-up note is required'),
   studentId: z.string().min(1, 'Student ID is required'),
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
-  dueDate: z.string().or(z.date()),
-  priority: z.enum(['low', 'medium', 'high']),
-  status: z.enum(['pending', 'in-progress', 'completed']).optional(),
-  assignedTo: z.string().optional(),
-  tags: z.array(z.string()).optional(),
 });
 
-export const FollowUpUpdateSchema = FollowUpCreateSchema.partial();
+export const FollowUpUpdateSchema = FollowUpCreateSchema.partial().omit({ studentId: true });
 
-// Pagination Schema
+// ==================== UTILITY SCHEMAS ====================
+
 export const PaginationSchema = z.object({
   page: z.number().int().positive().optional().default(1),
   limit: z.number().int().positive().max(100).optional().default(10),
 });
+
+// ==================== TYPE EXPORTS ====================
 
 export type StudentCreate = z.infer<typeof StudentCreateSchema>;
 export type StudentUpdate = z.infer<typeof StudentUpdateSchema>;
@@ -68,3 +108,89 @@ export type CallLogCreate = z.infer<typeof CallLogCreateSchema>;
 export type CallLogUpdate = z.infer<typeof CallLogUpdateSchema>;
 export type FollowUpCreate = z.infer<typeof FollowUpCreateSchema>;
 export type FollowUpUpdate = z.infer<typeof FollowUpUpdateSchema>;
+export type Pagination = z.infer<typeof PaginationSchema>;
+
+// ==================== UTILITY FUNCTIONS ====================
+
+/**
+ * Email validation utility
+ */
+export const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+/**
+ * Phone number formatter - removes all non-digit characters
+ */
+export const formatPhoneNumber = (phone: string): string => {
+  return phone.replace(/\D/g, '');
+};
+
+/**
+ * Phone number validation
+ */
+export const isValidPhoneNumber = (phone: string): boolean => {
+  const formatted = formatPhoneNumber(phone);
+  return formatted.length >= 10 && formatted.length <= 15;
+};
+
+/**
+ * Date validation utility - ensures date is not in future
+ */
+export const isValidPastDate = (date: Date): boolean => {
+  return date <= new Date();
+};
+
+/**
+ * Date validation utility - ensures date is valid
+ */
+export const isValidDate = (date: any): date is Date => {
+  return date instanceof Date && !isNaN(date.getTime());
+};
+
+/**
+ * Student data validation with parsing
+ */
+export const validateStudentData = (data: any) => {
+  return StudentCreateSchema.parse(data);
+};
+
+/**
+ * Assignment data validation with parsing
+ */
+export const validateAssignmentData = (data: any) => {
+  return AssignmentCreateSchema.parse(data);
+};
+
+/**
+ * Call log data validation with parsing
+ */
+export const validateCallLogData = (data: any) => {
+  return CallLogCreateSchema.parse(data);
+};
+
+/**
+ * Follow-up data validation with parsing
+ */
+export const validateFollowUpData = (data: any) => {
+  return FollowUpCreateSchema.parse(data);
+};
+
+/**
+ * Safe validation wrapper - returns error message instead of throwing
+ */
+export const safeValidate = <T>(
+  schema: z.ZodSchema,
+  data: any
+): { success: boolean; data?: T; error?: string } => {
+  try {
+    const result = schema.parse(data);
+    return { success: true, data: result };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.errors[0].message };
+    }
+    return { success: false, error: 'Validation failed' };
+  }
+};

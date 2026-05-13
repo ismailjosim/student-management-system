@@ -1,31 +1,27 @@
+export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'NOT_DEFINED';
+
 export interface Assignment {
   _id?: string;
+  assignmentNumber: number; // 1-10
+  status: AssignmentStatus;
+  completedDate?: Date;
+  notes?: string;
   studentId: string;
-  title: string;
-  description: string;
-  dueDate: Date;
-  submittedDate?: Date;
-  status: 'pending' | 'submitted' | 'graded' | 'overdue';
-  grade?: number;
-  feedback?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 export interface AssignmentCreateInput {
+  assignmentNumber: number;
+  status?: AssignmentStatus;
+  completedDate?: Date;
+  notes?: string;
   studentId: string;
-  title: string;
-  description: string;
-  dueDate: string | Date;
-  status?: 'pending' | 'submitted' | 'graded' | 'overdue';
 }
 
 export interface AssignmentUpdateInput {
-  title?: string;
-  description?: string;
-  dueDate?: string | Date;
-  submittedDate?: string | Date;
-  status?: 'pending' | 'submitted' | 'graded' | 'overdue';
-  grade?: number;
-  feedback?: string;
+  assignmentNumber?: number;
+  status?: AssignmentStatus;
+  completedDate?: Date;
+  notes?: string;
 }
