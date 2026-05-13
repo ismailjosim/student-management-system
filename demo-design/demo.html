@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>MentorTrack — Student Management</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link
+			href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
+			rel="stylesheet"
+			type="text/css"
+		/>
+		<script src="https://unpkg.com/lucide@latest"></script>
+		<style>
+			.page-content {
+				display: none;
+			}
+			.page-content.active {
+				display: block;
+			}
+			.assignment-dot {
+				width: 12px;
+				height: 12px;
+				border-radius: 50%;
+				display: inline-block;
+			}
+		</style>
+	</head>
+	<body class="bg-base-200 min-h-screen">
+		<!-- Navigation Bar -->
+		<div class="navbar bg-base-100 shadow-md sticky top-0 z-50 px-4 lg:px-8">
+			<div class="flex-1">
+				<a class="btn btn-ghost text-xl gap-2" onclick="showPage('dashboard')">
+					<i data-lucide="graduation-cap" class="text-primary"></i>
+					MentorTrack
+				</a>
+			</div>
+			<div class="flex-none hidden lg:flex">
+				<ul class="menu menu-horizontal px-1 gap-2">
+					<li>
+						<a onclick="showPage('dashboard')" class="nav-link active"
+							>Dashboard</a
+						>
+					</li>
+					<li>
+						<a onclick="showPage('students')" class="nav-link">Students</a>
+					</li>
+					<li>
+						<a onclick="showPage('bulk-update')" class="nav-link"
+							>Bulk Update</a
+						>
+					</li>
+				</ul>
+			</div>
+			<div class="flex-none lg:hidden">
+				<div class="dropdown dropdown-end">
+					<div tabindex="0" role="button" class="btn btn-ghost btn-circle">
+						<i data-lucide="menu"></i>
+					</div>
+					<ul
+						tabindex="0"
+						class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
+					>
+						<li><a onclick="showPage('dashboard')">Dashboard</a></li>
+						<li><a onclick="showPage('students')">Students</a></li>
+						<li><a onclick="showPage('bulk-update')">Bulk Update</a></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		<main class="p-4 lg:p-8 max-w-7xl mx-auto">
+			<!-- DASHBOARD PAGE -->
+			<div id="page-dashboard" class="page-content active">
+				<div
+					class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4"
+				>
+					<div>
+						<h1 class="text-3xl font-bold">Cohort Overview</h1>
+						<p class="text-base-content/70">
+							Real-time health metrics for your mentorship program.
+						</p>
+					</div>
+					<button class="btn btn-primary" onclick="exportCallList()">
+						<i data-lucide="download"></i> Export Call List
+					</button>
+				</div>
+
+				<!-- Stats Grid -->
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+					<div class="stats shadow bg-base-100">
+						<div class="stat">
+							<div class="stat-title">Total Students</div>
+							<div class="stat-value text-primary" id="stat-total-students">
+								0
+							</div>
+							<div class="stat-desc">Active in cohort</div>
+						</div>
+					</div>
+					<div class="stats shadow bg-base-100">
+						<div class="stat">
+							<div class="stat-title">Failing Students</div>
+							<div class="stat-value text-error" id="stat-failing">0</div>
+							<div class="stat-desc">Missed 2+ assignments</div>
+						</div>
+					</div>
+					<div class="stats shadow bg-base-100">
+						<div class="stat">
+							<div class="stat-title">Need Calls</div>
+							<div class="stat-value text-warning" id="stat-to-call">0</div>
+							<div class="stat-desc">Missing current assignment</div>
+						</div>
+					</div>
+					<div class="stats shadow bg-base-100">
+						<div class="stat">
+							<div class="stat-title">Avg. Progress</div>
+							<div class="stat-value text-info" id="stat-avg-progress">0%</div>
+							<div class="stat-desc">Assignment completion</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+					<!-- Failing Students List -->
+					<div class="lg:col-span-2 card bg-base-100 shadow">
+						<div class="card-body">
+							<h2 class="card-title mb-4">
+								<i data-lucide="alert-triangle" class="text-error"></i>
+								Students at Risk (Failing)
+							</h2>
+							<div class="overflow-x-auto">
+								<table class="table table-zebra">
+									<thead>
+										<tr>
+											<th>Name</th>
+											<th>Last Done</th>
+											<th>Status</th>
+											<th>Action</th>
+										</tr>
+									</thead>
+									<tbody id="failing-list-body">
+										<!-- Dynamic content -->
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
+					<!-- Call Queue -->
+					<div class="card bg-base-100 shadow">
+						<div class="card-body">
+							<h2 class="card-title mb-4">
+								<i data-lucide="phone-forwarded" class="text-warning"></i>
+								Call Queue
+							</h2>
+							<p class="text-xs text-base-content/60 mb-4">
+								Students who haven't submitted the latest active assignment
+								(A8).
+							</p>
+							<div
+								class="space-y-3 max-h-[400px] overflow-y-auto pr-2"
+								id="call-queue-body"
+							>
+								<!-- Dynamic content -->
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- STUDENTS TABLE PAGE -->
+			<div id="page-students" class="page-content">
+				<div
+					class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4"
+				>
+					<div>
+						<h1 class="text-3xl font-bold">Student Roster</h1>
+						<p class="text-base-content/70">
+							Manage your students and their participation.
+						</p>
+					</div>
+					<button class="btn btn-outline" onclick="simulateFileUpload()">
+						<i data-lucide="file-up"></i> Import Students (CSV)
+					</button>
+				</div>
+
+				<div class="card bg-base-100 shadow">
+					<div
+						class="p-4 border-b flex flex-col md:flex-row gap-4 justify-between bg-base-50"
+					>
+						<div class="relative w-full max-w-xs">
+							<i
+								data-lucide="search"
+								class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/50"
+							></i>
+							<input
+								type="text"
+								placeholder="Search students..."
+								class="input input-bordered w-full pl-10"
+								id="student-search"
+							/>
+						</div>
+						<div class="flex gap-2">
+							<select class="select select-bordered" id="filter-status">
+								<option value="all">All Statuses</option>
+								<option value="active">Active</option>
+								<option value="failing">Failing</option>
+							</select>
+						</div>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="table w-full">
+							<thead>
+								<tr>
+									<th>Student</th>
+									<th>Contact</th>
+									<th>Progress</th>
+									<th>Group</th>
+									<th>Last Call</th>
+									<th>Action</th>
+								</tr>
+							</thead>
+							<tbody id="student-table-body">
+								<!-- Dynamic content -->
+							</tbody>
+						</table>
+					</div>
+					<div class="p-4 border-t flex justify-center">
+						<div class="join">
+							<button class="join-item btn btn-sm">1</button>
+							<button class="join-item btn btn-sm btn-active">2</button>
+							<button class="join-item btn btn-sm">3</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- STUDENT DETAIL PAGE -->
+			<div id="page-student-detail" class="page-content">
+				<button
+					class="btn btn-ghost btn-sm mb-4"
+					onclick="showPage('students')"
+				>
+					<i data-lucide="arrow-left"></i> Back to Roster
+				</button>
+
+				<div id="student-detail-content">
+					<!-- Dynamic content -->
+				</div>
+			</div>
+
+			<!-- BULK UPDATE PAGE -->
+			<div id="page-bulk-update" class="page-content">
+				<div class="max-w-2xl mx-auto">
+					<h1 class="text-3xl font-bold mb-2">Bulk Assignment Update</h1>
+					<p class="text-base-content/70 mb-8">
+						Upload a list of emails to mark a specific assignment as completed
+						for multiple students at once.
+					</p>
+
+					<div class="card bg-base-100 shadow">
+						<div class="card-body">
+							<div class="form-control w-full mb-6">
+								<label class="label">
+									<span class="label-text font-bold">1. Select Assignment</span>
+								</label>
+								<select
+									class="select select-bordered"
+									id="bulk-assignment-select"
+								>
+									<option value="1">Assignment 1</option>
+									<option value="2">Assignment 2</option>
+									<option value="3">Assignment 3</option>
+									<option value="4">Assignment 4</option>
+									<option value="5">Assignment 5</option>
+									<option value="6">Assignment 6</option>
+									<option value="7">Assignment 7</option>
+									<option value="8" selected>Assignment 8 (Current)</option>
+									<option value="9">Assignment 9</option>
+									<option value="10">Assignment 10</option>
+								</select>
+							</div>
+
+							<div class="form-control w-full mb-6">
+								<label class="label">
+									<span class="label-text font-bold"
+										>2. Paste Emails (one per line)</span
+									>
+								</label>
+								<textarea
+									id="bulk-emails-input"
+									class="textarea textarea-bordered h-48"
+									placeholder="student1@example.com&#10;student2@example.com"
+								></textarea>
+							</div>
+
+							<div class="card-actions justify-end">
+								<button class="btn btn-primary" onclick="processBulkUpdate()">
+									<i data-lucide="play"></i> Match & Preview
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- Preview Area -->
+					<div id="bulk-preview" class="mt-8 hidden">
+						<div class="card bg-base-100 shadow border-t-4 border-primary">
+							<div class="card-body">
+								<h2 class="card-title mb-4">Preview Results</h2>
+								<div class="grid grid-cols-2 gap-4 mb-6">
+									<div class="bg-success/10 p-4 rounded-box">
+										<div
+											class="text-2xl font-bold text-success"
+											id="matched-count"
+										>
+											0
+										</div>
+										<div class="text-xs opacity-70">Matched in Database</div>
+									</div>
+									<div class="bg-error/10 p-4 rounded-box">
+										<div
+											class="text-2xl font-bold text-error"
+											id="unmatched-count"
+										>
+											0
+										</div>
+										<div class="text-xs opacity-70">Not Found</div>
+									</div>
+								</div>
+								<button
+									class="btn btn-success btn-block"
+									onclick="commitBulkUpdate()"
+								>
+									Confirm & Update Records
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</main>
+
+		<!-- Custom Modal for Notifications -->
+		<dialog id="system-modal" class="modal">
+			<div class="modal-box">
+				<h3 class="font-bold text-lg" id="modal-title">Notification</h3>
+				<p class="py-4" id="modal-message"></p>
+				<div class="modal-action">
+					<form method="dialog">
+						<button class="btn">Close</button>
+					</form>
+				</div>
+			</div>
+		</dialog>
+
+		<script>
+			// --- DATA MODEL & DEMO DATA ---
+			let students = [
+				{
+					id: '1',
+					name: 'John Doe',
+					email: 'john@example.com',
+					phone: '+1 234 567 890',
+					joinedGroup: true,
+					assignments: [
+						true,
+						true,
+						true,
+						true,
+						true,
+						false,
+						false,
+						false,
+						false,
+						false,
+					], // 1-10
+					callLogs: [
+						{
+							date: '2024-05-01',
+							problem: 'Work schedule',
+							promise: 'Catch up by Sunday',
+							deadline: '2024-05-05',
+							nextFollowUp: '2024-05-08',
+						},
+					],
+					lastCall: '2024-05-01',
+				},
+				{
+					id: '2',
+					name: 'Jane Smith',
+					email: 'jane@example.com',
+					phone: '+1 987 654 321',
+					joinedGroup: true,
+					assignments: [
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						false,
+						false,
+					],
+					callLogs: [],
+					lastCall: null,
+				},
+				{
+					id: '3',
+					name: 'Robert Brown',
+					email: 'robert@example.com',
+					phone: '+1 555 444 333',
+					joinedGroup: false,
+					assignments: [
+						true,
+						true,
+						false,
+						false,
+						false,
+						false,
+						false,
+						false,
+						false,
+						false,
+					],
+					callLogs: [
+						{
+							date: '2024-04-20',
+							problem: 'Health issues',
+							promise: 'Back in May',
+							deadline: '2024-05-01',
+							nextFollowUp: '2024-04-27',
+						},
+					],
+					lastCall: '2024-04-20',
+				},
+				{
+					id: '4',
+					name: 'Alice Wilson',
+					email: 'alice@example.com',
+					phone: '+1 111 222 333',
+					joinedGroup: true,
+					assignments: [
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						false,
+						false,
+						false,
+						false,
+					],
+					callLogs: [],
+					lastCall: null,
+				},
+				{
+					id: '5',
+					name: 'Michael Chen',
+					email: 'mchen@example.com',
+					phone: '+1 444 555 666',
+					joinedGroup: true,
+					assignments: [
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						false,
+					],
+					callLogs: [],
+					lastCall: null,
+				},
+			]
+
+			const CURRENT_ASSIGNMENT = 8
+
+			// --- NAVIGATION LOGIC ---
+			function showPage(pageId, studentId = null) {
+				document
+					.querySelectorAll('.page-content')
+					.forEach((p) => p.classList.remove('active'))
+				document.getElementById(`page-${pageId}`).classList.add('active')
+
+				// Update active nav link
+				document.querySelectorAll('.nav-link').forEach((link) => {
+					link.classList.toggle(
+						'active',
+						link.innerText.toLowerCase() === pageId,
+					)
+				})
+
+				if (pageId === 'dashboard') renderDashboard()
+				if (pageId === 'students') renderStudentsTable()
+				if (pageId === 'student-detail' && studentId)
+					renderStudentDetail(studentId)
+
+				window.scrollTo(0, 0)
+			}
+
+			// --- DASHBOARD RENDERER ---
+			function renderDashboard() {
+				const failingStudents = students.filter((s) => {
+					const lastDone = s.assignments.lastIndexOf(true) + 1
+					return CURRENT_ASSIGNMENT - lastDone >= 2
+				})
+
+				const toCall = students.filter(
+					(s) => !s.assignments[CURRENT_ASSIGNMENT - 1],
+				)
+
+				// Stats
+				document.getElementById('stat-total-students').innerText =
+					students.length
+				document.getElementById('stat-failing').innerText =
+					failingStudents.length
+				document.getElementById('stat-to-call').innerText = toCall.length
+
+				const totalProgress = students.reduce(
+					(acc, s) => acc + s.assignments.filter((a) => a).length,
+					0,
+				)
+				const avg = Math.round((totalProgress / (students.length * 10)) * 100)
+				document.getElementById('stat-avg-progress').innerText = `${avg}%`
+
+				// Failing List
+				const list = document.getElementById('failing-list-body')
+				list.innerHTML = failingStudents.length
+					? failingStudents
+							.map(
+								(s) => `
+                <tr>
+                    <td>
+                        <div class="font-bold">${s.name}</div>
+                        <div class="text-xs opacity-50">${s.email}</div>
+                    </td>
+                    <td>Assignment ${s.assignments.lastIndexOf(true) + 1}</td>
+                    <td><span class="badge badge-error badge-sm">Behind</span></td>
+                    <td><button class="btn btn-ghost btn-xs text-primary" onclick="showPage('student-detail', '${s.id}')">View</button></td>
+                </tr>
+            `,
+							)
+							.join('')
+					: '<tr><td colspan="4" class="text-center italic opacity-50">No failing students</td></tr>'
+
+				// Call Queue
+				const queue = document.getElementById('call-queue-body')
+				queue.innerHTML = toCall
+					.map(
+						(s) => `
+                <div class="flex items-center justify-between p-3 rounded-lg border border-base-300 hover:bg-base-200 cursor-pointer" onclick="showPage('student-detail', '${s.id}')">
+                    <div>
+                        <div class="font-medium text-sm">${s.name}</div>
+                        <div class="text-xs opacity-60">${s.phone}</div>
+                    </div>
+                    <i data-lucide="phone" class="w-4 h-4 text-warning"></i>
+                </div>
+            `,
+					)
+					.join('')
+				lucide.createIcons()
+			}
+
+			// --- STUDENTS TABLE RENDERER ---
+			function renderStudentsTable() {
+				const tableBody = document.getElementById('student-table-body')
+				const searchTerm = document
+					.getElementById('student-search')
+					.value.toLowerCase()
+				const statusFilter = document.getElementById('filter-status').value
+
+				let filtered = students.filter((s) => {
+					const matchesSearch =
+						s.name.toLowerCase().includes(searchTerm) ||
+						s.email.toLowerCase().includes(searchTerm)
+					const lastDone = s.assignments.lastIndexOf(true) + 1
+					const isFailing = CURRENT_ASSIGNMENT - lastDone >= 2
+
+					if (statusFilter === 'failing') return matchesSearch && isFailing
+					if (statusFilter === 'active') return matchesSearch && !isFailing
+					return matchesSearch
+				})
+
+				tableBody.innerHTML = filtered
+					.map((s) => {
+						const done = s.assignments.filter((a) => a).length
+						const lastDone = s.assignments.lastIndexOf(true) + 1
+						const isFailing = CURRENT_ASSIGNMENT - lastDone >= 2
+
+						return `
+                <tr class="hover">
+                    <td>
+                        <div class="flex items-center gap-3">
+                            <div class="avatar placeholder">
+                                <div class="bg-neutral text-neutral-content rounded-full w-8">
+                                    <span class="text-xs">${s.name
+																			.split(' ')
+																			.map((n) => n[0])
+																			.join('')}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="font-bold">${s.name}</div>
+                                <div class="text-xs opacity-50">ID: ${s.id}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="text-sm">${s.email}</div>
+                        <div class="text-xs opacity-50">${s.phone}</div>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <progress class="progress progress-primary w-20" value="${done}" max="10"></progress>
+                            <span class="text-xs font-bold">${done}/10</span>
+                        </div>
+                    </td>
+                    <td>
+                        ${s.joinedGroup ? '<span class="badge badge-success badge-sm">Yes</span>' : '<span class="badge badge-ghost badge-sm border">No</span>'}
+                    </td>
+                    <td>
+                        <span class="text-xs">${s.lastCall || 'Never'}</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-square btn-ghost btn-sm" onclick="showPage('student-detail', '${s.id}')">
+                            <i data-lucide="external-link" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `
+					})
+					.join('')
+				lucide.createIcons()
+			}
+
+			// --- STUDENT DETAIL RENDERER ---
+			function renderStudentDetail(id) {
+				const student = students.find((s) => s.id === id)
+				if (!student) return
+
+				const content = document.getElementById('student-detail-content')
+
+				// Generate Checklist
+				let checklistHtml = ''
+				for (let i = 1; i <= 10; i++) {
+					const isChecked = student.assignments[i - 1]
+					checklistHtml += `
+                    <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                        <span class="text-sm font-medium">Assignment ${i}</span>
+                        <input type="checkbox" class="checkbox checkbox-primary checkbox-sm" ${isChecked ? 'checked' : ''} onchange="toggleAssignment('${id}', ${i - 1})">
+                    </div>
+                `
+				}
+
+				// Generate Logs
+				const logsHtml = student.callLogs
+					.map(
+						(log) => `
+                <div class="border-l-2 border-primary pl-4 py-2 relative">
+                    <div class="absolute -left-[5px] top-4 w-2 h-2 bg-primary rounded-full"></div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-sm">${log.date}</span>
+                        <span class="text-xs opacity-50">Follow-up: ${log.nextFollowUp}</span>
+                    </div>
+                    <p class="text-sm mb-1"><span class="opacity-60">Problem:</span> ${log.problem}</p>
+                    <p class="text-sm"><span class="opacity-60">Promise:</span> ${log.promise} (by ${log.deadline})</p>
+                </div>
+            `,
+					)
+					.join('')
+
+				content.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Column 1: Info & Progress -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="card bg-base-100 shadow">
+                            <div class="card-body">
+                                <div class="flex flex-col items-center mb-4">
+                                    <div class="avatar placeholder mb-2">
+                                        <div class="bg-primary text-primary-content rounded-full w-20">
+                                            <span class="text-2xl">${student.name
+																							.split(' ')
+																							.map((n) => n[0])
+																							.join('')}</span>
+                                        </div>
+                                    </div>
+                                    <h2 class="text-2xl font-bold">${student.name}</h2>
+                                    <div class="badge badge-outline mt-1">${student.email}</div>
+                                </div>
+                                <div class="divider">Basic Info</div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm"><span class="opacity-60">Phone:</span><span>${student.phone}</span></div>
+                                    <div class="flex justify-between text-sm"><span class="opacity-60">In Group:</span><span>${student.joinedGroup ? '✅ Yes' : '❌ No'}</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card bg-base-100 shadow">
+                            <div class="card-body">
+                                <h3 class="font-bold mb-4">Course Progress (1-10)</h3>
+                                <div class="space-y-2">
+                                    ${checklistHtml}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 2 & 3: Logs & Update -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="card bg-base-100 shadow">
+                            <div class="card-body">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="card-title">Call Log & Outreach</h3>
+                                    <div class="badge badge-warning">Next Call: ${student.callLogs[0]?.nextFollowUp || 'TBD'}</div>
+                                </div>
+
+                                <!-- Add Log Form -->
+                                <div class="bg-base-200 p-4 rounded-xl mb-6">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider mb-4 opacity-70">Add New Log Entry</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="form-control">
+                                            <label class="label"><span class="label-text">Problem Mentioned</span></label>
+                                            <input type="text" id="log-problem" class="input input-sm input-bordered" placeholder="e.g. Too busy at work">
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label"><span class="label-text">Promise Made</span></label>
+                                            <input type="text" id="log-promise" class="input input-sm input-bordered" placeholder="e.g. Finish A5 by Saturday">
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label"><span class="label-text">Promise Deadline</span></label>
+                                            <input type="date" id="log-deadline" class="input input-sm input-bordered">
+                                        </div>
+                                        <div class="form-control flex flex-row items-end pb-2 gap-2">
+                                            <button class="btn btn-primary btn-sm flex-1" onclick="saveCallLog('${id}')">Save Log</button>
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] mt-2 opacity-50 text-center">Note: Next follow-up will be auto-set to +7 days from today.</p>
+                                </div>
+
+                                <!-- History -->
+                                <h4 class="text-xs font-bold uppercase tracking-wider mb-4 opacity-70">Log History</h4>
+                                <div class="space-y-4">
+                                    ${logsHtml || '<p class="text-center py-8 italic opacity-40">No call history recorded.</p>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `
+				lucide.createIcons()
+			}
+
+			// --- ACTIONS ---
+			function toggleAssignment(id, index) {
+				const student = students.find((s) => s.id === id)
+				student.assignments[index] = !student.assignments[index]
+				showToast('Progress updated!')
+			}
+
+			function saveCallLog(id) {
+				const problem = document.getElementById('log-problem').value
+				const promise = document.getElementById('log-promise').value
+				const deadline = document.getElementById('log-deadline').value
+
+				if (!problem) return showToast('Please enter a problem.', 'error')
+
+				const student = students.find((s) => s.id === id)
+				const today = new Date()
+				const nextWeek = new Date()
+				nextWeek.setDate(today.getDate() + 7)
+
+				const newLog = {
+					date: today.toISOString().split('T')[0],
+					problem,
+					promise,
+					deadline,
+					nextFollowUp: nextWeek.toISOString().split('T')[0],
+				}
+
+				student.callLogs.unshift(newLog)
+				student.lastCall = newLog.date
+				renderStudentDetail(id)
+				showToast('Call log saved and follow-up scheduled!')
+			}
+
+			function processBulkUpdate() {
+				const assignmentNum = document.getElementById(
+					'bulk-assignment-select',
+				).value
+				const emailsText = document.getElementById('bulk-emails-input').value
+				const emails = emailsText
+					.split('\n')
+					.map((e) => e.trim().toLowerCase())
+					.filter((e) => e)
+
+				if (emails.length === 0)
+					return showToast('Enter at least one email', 'error')
+
+				let matched = 0
+				let unmatched = 0
+
+				emails.forEach((email) => {
+					const student = students.find((s) => s.email.toLowerCase() === email)
+					if (student) matched++
+					else unmatched++
+				})
+
+				document.getElementById('matched-count').innerText = matched
+				document.getElementById('unmatched-count').innerText = unmatched
+				document.getElementById('bulk-preview').classList.remove('hidden')
+			}
+
+			function commitBulkUpdate() {
+				const assignmentNum = parseInt(
+					document.getElementById('bulk-assignment-select').value,
+				)
+				const emailsText = document.getElementById('bulk-emails-input').value
+				const emails = emailsText
+					.split('\n')
+					.map((e) => e.trim().toLowerCase())
+					.filter((e) => e)
+
+				let count = 0
+				emails.forEach((email) => {
+					const student = students.find((s) => s.email.toLowerCase() === email)
+					if (student) {
+						student.assignments[assignmentNum - 1] = true
+						count++
+					}
+				})
+
+				document.getElementById('bulk-preview').classList.add('hidden')
+				document.getElementById('bulk-emails-input').value = ''
+				showModal(
+					'Update Complete',
+					`Successfully updated ${count} students for Assignment ${assignmentNum}.`,
+				)
+				renderDashboard()
+			}
+
+			// --- UTILS ---
+			function showToast(msg, type = 'success') {
+				const toast = document.createElement('div')
+				toast.className = `toast toast-top toast-center z-[100]`
+				toast.innerHTML = `<div class="alert alert-${type}"><span>${msg}</span></div>`
+				document.body.appendChild(toast)
+				setTimeout(() => toast.remove(), 3000)
+			}
+
+			function showModal(title, message) {
+				document.getElementById('modal-title').innerText = title
+				document.getElementById('modal-message').innerText = message
+				document.getElementById('system-modal').showModal()
+			}
+
+			function exportCallList() {
+				showModal(
+					'Excel Export',
+					'Simulating Excel Export... Generating a file with Name, Email, and Phone for students in the call queue.',
+				)
+			}
+
+			function simulateFileUpload() {
+				showModal(
+					'Import Simulator',
+					'This would open a file picker for CSV/XLSX. The system would then parse the sheet using SheetJS and upsert the student records.',
+				)
+			}
+
+			// Init Search Listener
+			document
+				.getElementById('student-search')
+				.addEventListener('input', renderStudentsTable)
+			document
+				.getElementById('filter-status')
+				.addEventListener('change', renderStudentsTable)
+
+			// Initial Load
+			window.onload = () => {
+				renderDashboard()
+				lucide.createIcons()
+			}
+		</script>
+	</body>
+</html>

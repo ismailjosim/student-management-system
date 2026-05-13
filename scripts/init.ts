@@ -6,7 +6,6 @@
  */
 
 import { initializeDatabase, getCollectionStats } from '@/lib/db-init';
-import { closeDB } from '@/lib/mongodb';
 
 async function main() {
   try {
@@ -25,7 +24,6 @@ async function main() {
     console.error('❌ Database initialization failed:', error);
     process.exit(1);
   } finally {
-    await closeDB();
   }
 }
 

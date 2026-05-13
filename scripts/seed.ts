@@ -6,7 +6,7 @@
  */
 
 import mongoose from 'mongoose';
-import { connectDB, closeDB } from '@/lib/mongodb';
+import { connectDB } from '@/lib/mongodb';
 import { initializeDatabase } from '@/lib/db-init';
 import StudentModel from '@/models/Student';
 import AssignmentModel from '@/models/Assignment';
@@ -266,7 +266,7 @@ async function seedDatabase() {
     console.error('❌ Seeding failed:', error);
     process.exit(1);
   } finally {
-    await closeDB();
+    // await closeDB();
   }
 }
 

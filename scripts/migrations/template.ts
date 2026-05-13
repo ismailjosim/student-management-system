@@ -5,8 +5,7 @@
  * Update the migrate and rollback functions with your migration logic
  */
 
-import { connectDB, closeDB } from '@/lib/mongodb';
-import StudentModel from '@/models/Student';
+import { connectDB } from '@/lib/mongodb';
 
 export const version = '1.0.0';
 export const description = 'Initial schema migration';
@@ -25,7 +24,7 @@ export async function migrate() {
     console.error('❌ Migration failed:', error);
     throw error;
   } finally {
-    await closeDB();
+    // await closeDB();
   }
 }
 
@@ -43,6 +42,6 @@ export async function rollback() {
     console.error('❌ Rollback failed:', error);
     throw error;
   } finally {
-    await closeDB();
+    // await closeDB();
   }
 }

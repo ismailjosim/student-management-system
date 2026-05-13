@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod';
 
 // Type definitions
@@ -66,6 +67,22 @@ export const AssignmentCreateSchema = z.object({
 });
 
 export const AssignmentUpdateSchema = AssignmentCreateSchema.partial().omit({ studentId: true });
+
+export const AssignmentStatusSchema = z.object({
+  status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED', 'NOT_DEFINED']),
+  completedDate: z.date().optional(),
+  notes: z.string().optional(),
+});
+
+export const AssignmentBulkSubmitSchema = z.object({
+  assignmentNumber: z
+    .number()
+    .int()
+    .min(1, 'Assignment number must be between 1 and 10')
+    .max(10, 'Assignment number must be between 1 and 10'),
+  emails: z.array(z.string().email('Invalid email')).min(1, 'At least one email is required'),
+  completedDate: z.date().optional(),
+});
 
 // ==================== CALLLOG SCHEMAS ====================
 
