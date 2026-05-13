@@ -49,6 +49,7 @@ export interface Student {
   followUps?: string[];
 
   // Metadata
+  lastContactedAt?: Date;
   comments?: string[];
   createdAt?: Date;
   updatedAt?: Date;

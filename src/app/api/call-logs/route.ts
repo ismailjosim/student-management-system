@@ -2,9 +2,12 @@
 
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, getPaginationParams } from '@/lib/utils';
-import { CallLogCreateSchema } from '@/lib/validators';
+import { CallLogCreateSchema, CallLogBatchSchema } from '@/lib/validators';
+import { autoCreateFollowUp } from '@/lib/follow-up-logic';
 import CallLog from '@/models/CallLog';
+import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,26 +17,58 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const studentId = searchParams.get('studentId');
+    const status = searchParams.get('status');
+    const calledBy = searchParams.get('calledBy');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     const { skip } = getPaginationParams(page, limit);
-    const filter = studentId ? { studentId } : {};
 
+    // Build filter
+    const filter: any = {};
+    if (studentId) filter.studentId = new ObjectId(studentId);
+    if (status) filter.status = status;
+    if (calledBy) filter.calledBy = calledBy;
+
+    if (startDate || endDate) {
+      filter.date = {};
+      if (startDate) filter.date.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.date.$lte = end;
+      }
+    }
+
+    // Get call logs with student info
     const [callLogs, total] = await Promise.all([
-      CallLog.find(filter).populate('studentId').sort({ callDate: -1 }).skip(skip).limit(limit),
+      CallLog.find(filter).populate('studentId').sort({ date: -1 }).skip(skip).limit(limit),
       CallLog.countDocuments(filter),
     ]);
+
+    // Calculate status summary
+    const statusCounts = await CallLog.aggregate([
+      { $match: filter },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+
+    const summary = Object.fromEntries(statusCounts.map((item: any) => [item._id, item.count]));
 
     const pages = Math.ceil(total / limit);
 
     const response = createResponse(200, 'Call logs fetched successfully', {
       data: callLogs,
+      summary,
       pagination: { page, limit, total, pages },
     });
 
     return NextResponse.json(response);
   } catch (error) {
-    handleDbError(error);
-    return NextResponse.json(createResponse(500, 'Failed to fetch call logs'), { status: 500 });
+    const errorData = handleDbError(error);
+    return NextResponse.json(
+      createResponse(errorData.statusCode, errorData.message, undefined, errorData.errors),
+      { status: errorData.statusCode }
+    );
   }
 }
 
@@ -42,13 +77,70 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
+
+    // Check if it's a batch request
+    if (body.callLogs && Array.isArray(body.callLogs)) {
+      const validatedData = CallLogBatchSchema.parse(body);
+      const results = { created: 0, failed: 0, errors: [] as any[] };
+
+      for (const logData of validatedData.callLogs) {
+        try {
+          // Verify student exists
+          const student = await Student.findById(logData.studentId);
+          if (!student) {
+            results.failed++;
+            results.errors.push({
+              studentId: logData.studentId,
+              error: 'Student not found',
+            });
+            continue;
+          }
+
+          const callLog = new CallLog(logData);
+          const saved = await callLog.save();
+          await saved.populate('studentId');
+
+          // Auto-create follow-up
+          await autoCreateFollowUp(saved._id.toString(), logData.studentId);
+
+          // Update student's lastContactedAt
+          await Student.findByIdAndUpdate(logData.studentId, {
+            lastContactedAt: new Date(),
+          });
+
+          results.created++;
+        } catch (err) {
+          results.failed++;
+          results.errors.push({ studentId: logData.studentId, error: (err as any).message });
+        }
+      }
+
+      const response = createResponse(207, 'Batch operation completed', results);
+      return NextResponse.json(response, { status: 207 });
+    }
+
+    // Single create
     const validatedData = CallLogCreateSchema.parse(body);
 
-    const callLog = new CallLog(validatedData);
-    await callLog.save();
-    await callLog.populate('studentId');
+    // Verify student exists
+    const student = await Student.findById(validatedData.studentId);
+    if (!student) {
+      return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
+    }
 
-    const response = createResponse(201, 'Call log created successfully', callLog);
+    const callLog = new CallLog(validatedData);
+    const saved = await callLog.save();
+    await saved.populate('studentId');
+
+    // Auto-create follow-up
+    await autoCreateFollowUp(saved._id.toString(), validatedData.studentId);
+
+    // Update student's lastContactedAt
+    await Student.findByIdAndUpdate(validatedData.studentId, {
+      lastContactedAt: new Date(),
+    });
+
+    const response = createResponse(201, 'Call log created successfully', saved);
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {

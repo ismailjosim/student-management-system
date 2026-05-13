@@ -93,20 +93,37 @@ export const CallLogCreateSchema = z.object({
   calledBy: z.string().optional(),
   issues: z.string().optional(),
   promised: z.string().optional(),
+  nextFollowUp: z.date().optional(),
   studentId: z.string().min(1, 'Student ID is required'),
 });
 
 export const CallLogUpdateSchema = CallLogCreateSchema.partial().omit({ studentId: true });
 
+export const CallLogBatchSchema = z.object({
+  callLogs: z.array(CallLogCreateSchema),
+});
+
 // ==================== FOLLOWUP SCHEMAS ====================
 
 export const FollowUpCreateSchema = z.object({
-  date: z.date().optional(),
+  date: z.date().refine((date) => date > new Date(), 'Date must be in the future'),
   note: z.string().min(1, 'Follow-up note is required'),
   studentId: z.string().min(1, 'Student ID is required'),
 });
 
-export const FollowUpUpdateSchema = FollowUpCreateSchema.partial().omit({ studentId: true });
+export const FollowUpUpdateSchema = z.object({
+  date: z
+    .date()
+    .refine((date) => date > new Date(), 'Date must be in the future')
+    .optional(),
+  note: z.string().min(1, 'Follow-up note is required').optional(),
+  status: z.enum(['pending', 'completed', 'overdue']).optional(),
+  completedDate: z.date().optional(),
+});
+
+export const FollowUpCompleteSchema = z.object({
+  completedDate: z.date().optional(),
+});
 
 // ==================== UTILITY SCHEMAS ====================
 
@@ -123,8 +140,10 @@ export type AssignmentCreate = z.infer<typeof AssignmentCreateSchema>;
 export type AssignmentUpdate = z.infer<typeof AssignmentUpdateSchema>;
 export type CallLogCreate = z.infer<typeof CallLogCreateSchema>;
 export type CallLogUpdate = z.infer<typeof CallLogUpdateSchema>;
+export type CallLogBatch = z.infer<typeof CallLogBatchSchema>;
 export type FollowUpCreate = z.infer<typeof FollowUpCreateSchema>;
 export type FollowUpUpdate = z.infer<typeof FollowUpUpdateSchema>;
+export type FollowUpComplete = z.infer<typeof FollowUpCompleteSchema>;
 export type Pagination = z.infer<typeof PaginationSchema>;
 
 // ==================== UTILITY FUNCTIONS ====================

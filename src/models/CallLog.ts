@@ -15,6 +15,7 @@ export interface CallLogDocument {
   calledBy?: string;
   issues?: string;
   promised?: string;
+  nextFollowUp?: Date;
   studentId: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -47,6 +48,14 @@ const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
     calledBy: String,
     issues: String,
     promised: String,
+    nextFollowUp: {
+      type: Date,
+      default: function () {
+        const date = new Date(this.date);
+        date.setDate(date.getDate() + 7);
+        return date;
+      },
+    },
     studentId: {
       type: Schema.Types.ObjectId,
       ref: 'Student',

@@ -1,0 +1,49 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { connectDB } from '@/lib/mongodb';
+import { createResponse, handleDbError, getPaginationParams } from '@/lib/utils';
+import { getCallQueue } from '@/lib/follow-up-logic';
+import { NextRequest, NextResponse } from 'next/server';
+
+/**
+ * GET /api/call-queue
+ * Get auto-generated list of students who need calling
+ * Priority: overdue follow-ups > not called in 7 days > pending assignments
+ */
+export async function GET(request: NextRequest) {
+  try {
+    await connectDB();
+
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const page = parseInt(searchParams.get('page') || '1');
+
+    const { skip } = getPaginationParams(page, limit);
+
+    // Get call queue
+    const queue = await getCallQueue(limit);
+
+    // Apply pagination
+    const paginatedQueue = queue.slice(skip, skip + limit);
+    const total = queue.length;
+    const pages = Math.ceil(total / limit);
+
+    const response = createResponse(200, 'Call queue generated successfully', {
+      data: paginatedQueue,
+      stats: {
+        total,
+        highPriority: queue.filter((q: any) => q.priority === 'high').length,
+        normalPriority: queue.filter((q: any) => q.priority === 'normal').length,
+      },
+      pagination: { page, limit, total, pages },
+    });
+
+    return NextResponse.json(response);
+  } catch (error) {
+    const errorData = handleDbError(error);
+    return NextResponse.json(
+      createResponse(errorData.statusCode, errorData.message, undefined, errorData.errors),
+      { status: errorData.statusCode }
+    );
+  }
+}

@@ -13,6 +13,7 @@ export interface CallLog {
   calledBy?: string;
   issues?: string;
   promised?: string;
+  nextFollowUp?: Date;
   studentId: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -25,6 +26,7 @@ export interface CallLogCreateInput {
   calledBy?: string;
   issues?: string;
   promised?: string;
+  nextFollowUp?: Date;
   studentId: string;
 }
 
@@ -35,5 +37,5 @@ export interface CallLogUpdateInput {
   calledBy?: string;
   issues?: string;
   promised?: string;
-  callType?: 'phone' | 'video' | 'message';
+  nextFollowUp?: Date;
 }

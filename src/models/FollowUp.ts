@@ -1,9 +1,13 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export type FollowUpStatus = 'pending' | 'completed' | 'overdue';
+
 export interface FollowUpDocument {
   _id?: string;
   date: Date;
   note: string;
+  status?: FollowUpStatus;
+  completedDate?: Date;
   studentId: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -26,6 +30,17 @@ const FollowUpSchema = new Schema<FollowUpDocumentWithMongoose>(
     note: {
       type: String,
       required: [true, 'Follow-up note is required'],
+    },
+    status: {
+      type: String,
+      enum: {
+        values: ['pending', 'completed', 'overdue'],
+        message: 'Status must be one of: pending, completed, overdue',
+      },
+      default: 'pending',
+    },
+    completedDate: {
+      type: Date,
     },
     studentId: {
       type: Schema.Types.ObjectId,

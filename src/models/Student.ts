@@ -51,6 +51,7 @@ export interface StudentDocument {
   followUps?: string[];
 
   // Metadata
+  lastContactedAt?: Date;
   comments?: string[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -155,6 +156,9 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
     ],
 
     // Metadata
+    lastContactedAt: {
+      type: Date,
+    },
     comments: [String],
   },
   {

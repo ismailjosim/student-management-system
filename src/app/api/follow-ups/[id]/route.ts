@@ -5,31 +5,47 @@ import { createResponse, handleDbError, handleZodError } from '@/lib/utils';
 import { FollowUpUpdateSchema } from '@/lib/validators';
 import FollowUp from '@/models/FollowUp';
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+
     const { id } = await params;
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(createResponse(400, 'Invalid follow-up ID'), { status: 400 });
+    }
+
     const followUp = await FollowUp.findById(id).populate('studentId');
 
     if (!followUp) {
       return NextResponse.json(createResponse(404, 'Follow-up not found'), { status: 404 });
     }
 
-    const response = createResponse(200, 'Follow-up fetched successfully', followUp);
-    return NextResponse.json(response);
+    return NextResponse.json(createResponse(200, 'Follow-up fetched successfully', followUp));
   } catch (error) {
-    handleDbError(error);
-    return NextResponse.json(createResponse(500, 'Failed to fetch follow-up'), { status: 500 });
+    const errorData = handleDbError(error);
+
+    return NextResponse.json(
+      createResponse(errorData.statusCode, errorData.message, undefined, errorData.errors),
+      { status: errorData.statusCode }
+    );
   }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+
     const { id } = await params;
 
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(createResponse(400, 'Invalid follow-up ID'), { status: 400 });
+    }
+
     const body = await request.json();
+
     const validatedData = FollowUpUpdateSchema.parse(body);
 
     const followUp = await FollowUp.findByIdAndUpdate(id, validatedData, {
@@ -41,11 +57,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(createResponse(404, 'Follow-up not found'), { status: 404 });
     }
 
-    const response = createResponse(200, 'Follow-up updated successfully', followUp);
-    return NextResponse.json(response);
+    return NextResponse.json(createResponse(200, 'Follow-up updated successfully', followUp));
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
       const errorData = handleZodError(error as any);
+
       return NextResponse.json(
         createResponse(errorData.statusCode, errorData.message, undefined, errorData.errors),
         { status: errorData.statusCode }
@@ -53,6 +69,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const errorData = handleDbError(error);
+
     return NextResponse.json(
       createResponse(errorData.statusCode, errorData.message, undefined, errorData.errors),
       { status: errorData.statusCode }
@@ -66,7 +83,12 @@ export async function DELETE(
 ) {
   try {
     await connectDB();
+
     const { id } = await params;
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(createResponse(400, 'Invalid follow-up ID'), { status: 400 });
+    }
 
     const followUp = await FollowUp.findByIdAndDelete(id);
 
@@ -74,10 +96,13 @@ export async function DELETE(
       return NextResponse.json(createResponse(404, 'Follow-up not found'), { status: 404 });
     }
 
-    const response = createResponse(200, 'Follow-up deleted successfully', followUp);
-    return NextResponse.json(response);
+    return NextResponse.json(createResponse(200, 'Follow-up deleted successfully', followUp));
   } catch (error) {
-    handleDbError(error);
-    return NextResponse.json(createResponse(500, 'Failed to delete follow-up'), { status: 500 });
+    const errorData = handleDbError(error);
+
+    return NextResponse.json(
+      createResponse(errorData.statusCode, errorData.message, undefined, errorData.errors),
+      { status: errorData.statusCode }
+    );
   }
 }
