@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -19,62 +20,61 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchDashboardData = async () => {
-    try {
-      setError(null);
-      setRefreshing(true);
-
-      // Fetch stats
-      const statsResponse = await dashboardApi.getStats();
-      if (statsResponse.error) {
-        throw new Error(statsResponse.error);
-      }
-
-      if (statsResponse.data) {
-        setStats(statsResponse.data as DashboardStatsType);
-      }
-
-      // Fetch failing students
-      const failingResponse = await dashboardApi.getFailingStudents(1, 10);
-      if (failingResponse.error) {
-        throw new Error(failingResponse.error);
-      }
-
-      if (
-        failingResponse.data &&
-        typeof failingResponse.data === 'object' &&
-        'data' in failingResponse.data
-      ) {
-        setFailingStudents((failingResponse.data as any).data || []);
-      }
-
-      // Fetch call queue (students needing calls - At Risk and Behind)
-      const callQueueResponse = await dashboardApi.getFailingStudents(1, 8);
-      if (callQueueResponse.error) {
-        throw new Error(callQueueResponse.error);
-      }
-
-      if (
-        callQueueResponse.data &&
-        typeof callQueueResponse.data === 'object' &&
-        'data' in callQueueResponse.data
-      ) {
-        setCallQueueStudents((callQueueResponse.data as any).data || []);
-      }
-
-      setLastUpdated(new Date());
-      setError(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setError(null);
+        setRefreshing(true);
+
+        // Fetch stats
+        const statsResponse = await dashboardApi.getStats();
+        if (statsResponse.error) {
+          throw new Error(statsResponse.error);
+        }
+
+        if (statsResponse.data) {
+          setStats(statsResponse.data as DashboardStatsType);
+        }
+
+        // Fetch failing students
+        const failingResponse = await dashboardApi.getFailingStudents(1, 10);
+        if (failingResponse.error) {
+          throw new Error(failingResponse.error);
+        }
+
+        if (
+          failingResponse.data &&
+          typeof failingResponse.data === 'object' &&
+          'data' in failingResponse.data
+        ) {
+          setFailingStudents((failingResponse.data as any).data || []);
+        }
+
+        // Fetch call queue (students needing calls - At Risk and Behind)
+        const callQueueResponse = await dashboardApi.getFailingStudents(1, 8);
+        if (callQueueResponse.error) {
+          throw new Error(callQueueResponse.error);
+        }
+
+        if (
+          callQueueResponse.data &&
+          typeof callQueueResponse.data === 'object' &&
+          'data' in callQueueResponse.data
+        ) {
+          setCallQueueStudents((callQueueResponse.data as any).data || []);
+        }
+
+        setLastUpdated(new Date());
+        setError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
+        setError(message);
+        toast.error(message);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
     fetchDashboardData();
 
     // Auto-refresh every 60 seconds
@@ -138,7 +138,6 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchDashboardData}
             disabled={refreshing}
             className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 transition-colors disabled:opacity-50"
           >
@@ -163,10 +162,7 @@ export default function DashboardPage() {
             <p className="text-sm font-medium text-destructive">{error}</p>
             <p className="text-xs text-destructive/80 mt-0.5">Showing cached data if available</p>
           </div>
-          <button
-            onClick={() => fetchDashboardData()}
-            className="px-3 py-1 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/90"
-          >
+          <button className="px-3 py-1 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/90">
             Retry
           </button>
         </div>
