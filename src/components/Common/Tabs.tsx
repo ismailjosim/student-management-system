@@ -33,7 +33,7 @@ export function Tabs({ items, defaultValue, onValueChange, className }: TabsProp
             key={item.value}
             onClick={() => handleTabChange(item.value)}
             className={cn(
-              'px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-[2px]',
+              'px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-0.5',
               activeTab === item.value
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'

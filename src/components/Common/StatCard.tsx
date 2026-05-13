@@ -47,7 +47,7 @@ export function StatCard({
             </p>
           )}
         </div>
-        {Icon && <Icon className="w-8 h-8 text-muted-foreground flex-shrink-0" />}
+        {Icon && <Icon className="w-8 h-8 text-muted-foreground shrink-0" />}
       </div>
     </div>
   );

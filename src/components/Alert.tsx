@@ -57,7 +57,7 @@ export function Alert({ type, title, message, onClose, closeable = true, classNa
       )}
       role="alert"
     >
-      <div className="flex-shrink-0 mt-0.5">{config.icon}</div>
+      <div className="shrink-0 mt-0.5">{config.icon}</div>
       <div className="flex-1 min-w-0">
         {title && <h3 className="font-semibold text-sm">{title}</h3>}
         <p className={cn('text-sm', title && 'mt-1')}>{message}</p>
@@ -65,7 +65,7 @@ export function Alert({ type, title, message, onClose, closeable = true, classNa
       {closeable && onClose && (
         <button
           onClick={onClose}
-          className="flex-shrink-0 p-1 hover:opacity-70 transition-opacity"
+          className="shrink-0 p-1 hover:opacity-70 transition-opacity"
           aria-label="Close alert"
         >
           <X className="w-4 h-4" />

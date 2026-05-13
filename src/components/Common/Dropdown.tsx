@@ -56,7 +56,7 @@ export function Dropdown({ trigger, options, align = 'left', className }: Dropdo
       {isOpen && (
         <div
           className={cn(
-            'absolute top-full mt-1 min-w-[200px] rounded-md border border-border bg-background shadow-lg z-50',
+            'absolute top-full mt-1 min-w-50 rounded-md border border-border bg-background shadow-lg z-50',
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >

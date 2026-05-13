@@ -46,7 +46,7 @@ export function CardHeader({ children, className, title, subtitle, action }: Car
         {title && <h3 className="text-lg font-semibold text-foreground">{title}</h3>}
         {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
       </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
+      {action && <div className="shrink-0">{action}</div>}
       {children}
     </div>
   );
