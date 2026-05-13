@@ -180,16 +180,16 @@ export const validateFollowUpData = (data: any) => {
 /**
  * Safe validation wrapper - returns error message instead of throwing
  */
-export const safeValidate = <T>(
+export const safeValidate = <T = unknown>(
   schema: z.ZodSchema,
-  data: any
+  data: unknown
 ): { success: boolean; data?: T; error?: string } => {
   try {
-    const result = schema.parse(data);
+    const result = schema.parse(data) as T;
     return { success: true, data: result };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      return { success: false, error: error.issues[0].message };
     }
     return { success: false, error: 'Validation failed' };
   }

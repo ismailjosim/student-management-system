@@ -190,3 +190,66 @@ export function slugify(text: string): string {
     .replace(/[^\w-]/g, '')
     .replace(/--+/g, '-');
 }
+
+/**
+ * Validate MongoDB ObjectId
+ */
+export function isValidObjectId(id: string): boolean {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
+
+/**
+ * Sanitize Input - Trim and normalize text fields
+ */
+export function sanitizeInput(data: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value === 'string') {
+      // Trim whitespace and apply field-specific rules
+      let cleanValue = value.trim();
+
+      if (key === 'email') {
+        cleanValue = cleanValue.toLowerCase();
+      } else if (key === 'phone' || key === 'whatsapp') {
+        // Remove all non-digit characters from phone numbers
+        cleanValue = cleanValue.replace(/\D/g, '');
+      }
+
+      sanitized[key] = cleanValue;
+    } else if (Array.isArray(value)) {
+      // Sanitize array elements if they're strings
+      sanitized[key] = value.map((item) => (typeof item === 'string' ? item.trim() : item));
+    } else if (value !== null && value !== undefined) {
+      sanitized[key] = value;
+    }
+  }
+
+  return sanitized;
+}
+
+/**
+ * Logger Utility
+ */
+export const logger = {
+  info: (message: string, data?: unknown) => {
+    console.log(
+      `[INFO] ${new Date().toISOString()} - ${message}`,
+      data ? JSON.stringify(data) : ''
+    );
+  },
+  error: (message: string, error?: unknown) => {
+    console.error(
+      `[ERROR] ${new Date().toISOString()} - ${message}`,
+      error ? JSON.stringify(error) : ''
+    );
+  },
+  debug: (message: string, data?: unknown) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `[DEBUG] ${new Date().toISOString()} - ${message}`,
+        data ? JSON.stringify(data) : ''
+      );
+    }
+  },
+};

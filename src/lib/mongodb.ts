@@ -1,11 +1,7 @@
 import mongoose, { Connection, Mongoose } from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/student-management';
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'student-management';
-
-if (!MONGODB_URI) {
-  throw new Error('Please define MONGODB_URI environment variable');
-}
 
 interface GlobalMongoose {
   conn: Mongoose | null;
@@ -26,6 +22,10 @@ if (!global.mongoose) {
  * Connect to MongoDB with connection pooling, error handling, and retry logic
  */
 export async function connectDB(): Promise<Mongoose> {
+  if (!process.env.MONGODB_URI) {
+    throw new Error('Please define MONGODB_URI environment variable');
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -41,7 +41,7 @@ export async function connectDB(): Promise<Mongoose> {
     };
 
     cached.promise = mongoose
-      .connect(MONGODB_URI, opts)
+      .connect(process.env.MONGODB_URI, opts)
       .then((mongoose) => {
         console.log('✅ MongoDB connected successfully');
         setupConnectionHandlers();

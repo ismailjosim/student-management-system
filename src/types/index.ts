@@ -120,12 +120,3 @@ export interface CallLogFilterOptions {
   fromDate?: Date;
   toDate?: Date;
 }
-
-// ==================== GLOBAL TYPES ====================
-
-declare global {
-  var mongoose: {
-    conn: unknown;
-    promise: Promise<unknown>;
-  };
-}

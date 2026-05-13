@@ -22,11 +22,18 @@ export async function GET(request: NextRequest) {
 
     const stats: DashboardStats = {
       totalStudents: students.length,
-      activeStudents: students.filter((s: any) => s.status === 'active').length,
+      activeStudents: students.filter(
+        (s: any) => s.currentStatus !== 'Dropped' && s.currentStatus !== 'Completed'
+      ).length,
+      onTrackStudents: students.filter((s: any) => s.currentStatus === 'On Track').length,
+      atRiskStudents: students.filter((s: any) => s.currentStatus === 'At Risk').length,
+      completedStudents: students.filter((s: any) => s.currentStatus === 'Completed').length,
       totalAssignments: assignments.length,
-      pendingAssignments: assignments.filter((a: any) => a.status === 'pending').length,
+      pendingAssignments: assignments.filter((a: any) => a.status === 'PENDING').length,
+      completedAssignments: assignments.filter((a: any) => a.status === 'COMPLETED').length,
       totalCallLogs: callLogs.length,
-      pendingFollowUps: followUps.filter((f: any) => f.status === 'pending').length,
+      totalFollowUps: followUps.length,
+      pendingFollowUps: followUps.filter((f: any) => new Date(f.date) > new Date()).length,
     };
 
     const response = createResponse(200, 'Dashboard stats fetched successfully', stats);
