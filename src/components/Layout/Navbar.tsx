@@ -2,8 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { GraduationCap, LayoutDashboard, Users, RefreshCw, Menu, X } from 'lucide-react';
+import {
+  GraduationCap,
+  LayoutDashboard,
+  Users,
+  RefreshCw,
+  Menu,
+  X,
+  LogOut,
+  User,
+} from 'lucide-react';
 import { useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { APP_NAME } from '@/lib/constants';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
@@ -17,6 +27,7 @@ const navLinks = [
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: session } = useSession();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 shadow-sm">
@@ -52,14 +63,36 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Mobile Toggle */}
-        <button
-          className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        {/* User Section */}
+        <div className="flex items-center gap-4">
+          {session?.user ? (
+            <div className="hidden md:flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <div className="text-sm">
+                  <p className="font-medium">{session.user.name}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{session.user.role}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => signOut({ callbackUrl: '/auth/login' })}
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : null}
+
+          {/* Mobile Toggle */}
+          <button
+            className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -85,6 +118,33 @@ export function Navbar() {
                 </Link>
               );
             })}
+
+            {/* Mobile User Section */}
+            {session?.user && (
+              <>
+                <div className="border-t my-3 pt-3">
+                  <div className="flex items-center gap-2 px-4 py-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <div className="text-sm">
+                      <p className="font-medium">{session.user.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {session.user.role}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false);
+                      signOut({ callbackUrl: '/auth/login' });
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+              </>
+            )}
           </nav>
         </div>
       )}

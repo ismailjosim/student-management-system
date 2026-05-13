@@ -5,3 +5,6 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Note: NextAuth v5 uses middleware, not withAuth plugin
+// Middleware is configured in src/middleware.ts
