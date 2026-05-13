@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, RefreshCw, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { StudentWithRelations, StudentStatus } from '@/types';
+import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { getStatusBadgeClass, getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { StudentAvatar } from './StudentAvatar';
@@ -30,18 +30,36 @@ export function StudentsTable({ students }: StudentsTableProps) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
+
     return students.filter((s) => {
       const matchSearch =
         s.name.toLowerCase().includes(q) ||
         s.email.toLowerCase().includes(q) ||
         (s.phone ?? '').includes(q);
+
       const matchStatus = statusFilter === 'all' || s.currentStatus === statusFilter;
+
       return matchSearch && matchStatus;
     });
   }, [students, search, statusFilter]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // ✅ FIX: safe total pages (never 0)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  // ✅ FIX: clamp page when data changes
+  useEffect(() => {
+    setPage((prev) => {
+      if (prev > totalPages) return totalPages;
+      if (prev < 1) return 1;
+      return prev;
+    });
+  }, [totalPages]);
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filtered.slice(start, end);
+  }, [filtered, page]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -50,6 +68,12 @@ export function StudentsTable({ students }: StudentsTableProps) {
 
   const handleFilter = (val: string) => {
     setStatusFilter(val);
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
     setPage(1);
   };
 
@@ -67,6 +91,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
             className="w-full pl-10 pr-4 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
+
         <div className="flex items-center gap-2">
           <select
             value={statusFilter}
@@ -79,12 +104,9 @@ export function StudentsTable({ students }: StudentsTableProps) {
               </option>
             ))}
           </select>
+
           <button
-            onClick={() => {
-              setSearch('');
-              setStatusFilter('all');
-              setPage(1);
-            }}
+            onClick={resetFilters}
             className="p-2 border rounded-md hover:bg-muted transition-colors"
             title="Reset filters"
           >
@@ -121,6 +143,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
               </th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-border">
             {paginated.length === 0 ? (
               <tr>
@@ -132,6 +155,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
               paginated.map((s) => {
                 const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
                 const pct = lastDone * 10;
+
                 return (
                   <tr key={s._id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-6 py-3">
@@ -143,6 +167,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
                         </div>
                       </div>
                     </td>
+
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1 w-28">
                         <div className="flex justify-between text-[11px] font-medium">
@@ -157,13 +182,17 @@ export function StudentsTable({ students }: StudentsTableProps) {
                         </div>
                       </div>
                     </td>
+
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getStatusBadgeClass(s.currentStatus!)}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getStatusBadgeClass(
+                          s.currentStatus!
+                        )}`}
                       >
                         {s.currentStatus}
                       </span>
                     </td>
+
                     <td className="px-4 py-3">
                       {s.mentorshipJoiningStatus ? (
                         <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">
@@ -175,10 +204,13 @@ export function StudentsTable({ students }: StudentsTableProps) {
                         </span>
                       )}
                     </td>
+
                     <td className="px-4 py-3 text-sm text-muted-foreground">{s.division ?? '—'}</td>
+
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {s.workingDevice ?? '—'}
                     </td>
+
                     <td className="px-6 py-3 text-right">
                       <Link
                         href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)}
@@ -201,6 +233,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
         <p className="text-xs text-muted-foreground">
           Showing {paginated.length} of {filtered.length} students
         </p>
+
         {totalPages > 1 && (
           <div className="flex items-center gap-1">
             <button
@@ -210,6 +243,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
+
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <button
                 key={p}
@@ -223,6 +257,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
                 {p}
               </button>
             ))}
+
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}

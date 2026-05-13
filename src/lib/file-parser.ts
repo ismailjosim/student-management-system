@@ -119,32 +119,38 @@ export function validateStudentData(row: any): {
   errors?: string[];
 } {
   try {
+    // Normalize all keys to lowercase first
+    const normalizedRow: Record<string, any> = {};
+    for (const key of Object.keys(row)) {
+      normalizedRow[key.toLowerCase().trim()] = row[key];
+    }
+
     const normalized = {
-      name: row.name?.toString().trim() || '',
-      email: normalizeEmail(row.email),
-      phone: formatPhoneNumber(row.phone),
-      whatsapp: formatPhoneNumber(row.whatsapp),
-      division: row.division?.toString().trim(),
-      institute: row.institute?.toString().trim(),
-      educationalBackground: row.educationalBackground?.toString().trim(),
-      currentYear: row.currentYear?.toString().trim(),
-      group: row.group?.toString().trim(),
-      device: row.device?.toString().trim(),
+      name: normalizedRow.name?.toString().trim() || '',
+      email: normalizeEmail(normalizedRow.email),
+      phone: formatPhoneNumber(normalizedRow.phone),
+      whatsapp: formatPhoneNumber(normalizedRow.whatsapp),
+      division: normalizedRow.division?.toString().trim(),
+      institute: normalizedRow.institute?.toString().trim(),
+      educationalBackground: normalizedRow.educationalbackground?.toString().trim(),
+      currentYear: normalizedRow.currentyear?.toString().trim(),
+      group: normalizedRow.group?.toString().trim(),
+      device: normalizedRow.device?.toString().trim(),
     };
 
     const result = StudentDataSchema.parse(normalized);
     return { valid: true, data: result };
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.log({ error });
       return {
         valid: false,
-        errors: (error as any).errors.map((e: any) => `${e.path.join('.')}: ${e.message}`),
+        // errors: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
       };
     }
     return { valid: false, errors: ['Unknown validation error'] };
   }
 }
-
 /**
  * Validate assignment import data (email only)
  */

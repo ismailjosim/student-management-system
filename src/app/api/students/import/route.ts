@@ -4,14 +4,6 @@ import Student from '@/models/Student';
 import { processStudentImportFile, validateStudentData } from '@/lib/file-parser';
 import { connectDB } from '@/lib/mongodb';
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '5mb',
-    },
-  },
-};
-
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
