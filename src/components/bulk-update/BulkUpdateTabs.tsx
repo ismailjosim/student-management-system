@@ -12,6 +12,7 @@ interface BulkResult {
   matched: number;
   unmatched: number;
   unmatchedEmails: string[];
+  matchedStudents?: Array<{ studentId: string; email: string; name: string }>;
 }
 
 const ASSIGNMENTS = Array.from({ length: 10 }, (_, i) => ({
@@ -100,14 +101,27 @@ export function BulkUpdateTabs() {
         }
       }
 
-      // Mock matching - in production would call API
-      const matchedCount = Math.floor(emails.length * 0.8);
-      const unmatchedEmails = emails.slice(matchedCount);
+      // Call real API to match emails
+      const response = await fetch('/api/assignments/bulk-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.message || 'Failed to match emails');
+        return;
+      }
+
+      const { data } = result;
 
       setResult({
-        matched: matchedCount,
-        unmatched: unmatchedEmails.length,
-        unmatchedEmails,
+        matched: data.stats.matched,
+        unmatched: data.stats.unmatched,
+        unmatchedEmails: data.unmatched,
+        matchedStudents: data.matched,
       });
       setCommitted(false);
     } catch (err) {
@@ -126,12 +140,20 @@ export function BulkUpdateTabs() {
         ? await processAssignmentImportFile(file).then((f) => f.validEmails)
         : parseEmails(emailsText);
 
-      // In production: Call API
-      // const response = await fetch('/api/assignments/bulk-submit', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ emails, assignmentNumber: assignmentNum })
-      // })
+      // Call real API to submit assignments
+      const response = await fetch('/api/assignments/bulk-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails, assignmentNumber: assignmentNum }),
+      });
+
+      const apiResult = await response.json();
+
+      if (!response.ok) {
+        setError(apiResult.message || 'Failed to submit assignments');
+        toast.error(apiResult.message || 'Failed to submit assignments');
+        return;
+      }
 
       toast.success(
         `Successfully updated ${result?.matched ?? 0} students for ${ASSIGNMENTS[assignmentNum - 1].label}`
@@ -352,6 +374,23 @@ export function BulkUpdateTabs() {
                     </div>
                   )}
                 </div>
+
+                {result.matchedStudents && result.matchedStudents.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Matched Students ({result.matchedStudents.length}):
+                    </p>
+                    <div className="text-xs space-y-1 max-h-40 overflow-y-auto bg-white rounded p-2">
+                      {result.matchedStudents.map((s) => (
+                        <div key={s.studentId} className="text-green-700">
+                          <span className="font-mono">{s.email}</span> -{' '}
+                          <span className="font-medium">{s.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {result.unmatchedEmails.length > 0 && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">

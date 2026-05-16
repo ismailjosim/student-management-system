@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState } from 'react';
@@ -45,11 +46,19 @@ export function CallLogSection({ callLogs: initialCallLogs, studentId }: CallLog
       setSubmitting(true);
       setError(null);
 
-      const response = await callLogApi.create({
-        ...form,
+      // Build payload with only non-empty fields
+      const payload: any = {
         studentId,
+        status: form.status,
         date: new Date(),
-      });
+      };
+
+      if (form.calledBy.trim()) payload.calledBy = form.calledBy.trim();
+      if (form.issues.trim()) payload.issues = form.issues.trim();
+      if (form.promised.trim()) payload.promised = form.promised.trim();
+      if (form.notes.trim()) payload.notes = form.notes.trim();
+
+      const response = await callLogApi.create(payload);
 
       if (response.error) {
         throw new Error(response.error);

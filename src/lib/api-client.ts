@@ -11,7 +11,7 @@ export class ApiClient {
   async request<T>(
     endpoint: string,
     options?: RequestInit
-  ): Promise<{ data?: T; error?: string; statusCode: number }> {
+  ): Promise<{ data?: T; error?: string; statusCode: number; rawResponse?: any }> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
       const response = await fetch(url, {
@@ -34,6 +34,7 @@ export class ApiClient {
       return {
         data: (responseData.data || responseData) as T,
         statusCode: response.status,
+        rawResponse: responseData,
       };
     } catch (error) {
       console.error('API request error:', error);
@@ -77,6 +78,19 @@ export const studentApi = {
     apiClient.get('/api/students', {
       method: 'GET',
     }),
+  getAllPaginated: (
+    page: number = 1,
+    limit: number = 10,
+    search: string = '',
+    status: string = ''
+  ) => {
+    const params = new URLSearchParams();
+    params.set('page', page.toString());
+    params.set('limit', limit.toString());
+    if (search) params.set('search', search);
+    if (status) params.set('status', status);
+    return apiClient.get(`/api/students?${params.toString()}`);
+  },
   getById: (id: string) => apiClient.get(`/api/students/${id}`),
   create: (data: Record<string, unknown>) => apiClient.post('/api/students', data),
   update: (id: string, data: Record<string, unknown>) => apiClient.put(`/api/students/${id}`, data),
@@ -91,6 +105,10 @@ export const assignmentApi = {
   update: (id: string, data: Record<string, unknown>) =>
     apiClient.put(`/api/assignments/${id}`, data),
   delete: (id: string) => apiClient.delete(`/api/assignments/${id}`),
+  submit: (id: string, completedDate?: Date) =>
+    apiClient.put(`/api/assignments/${id}/submit`, { completedDate }),
+  complete: (id: string, completedDate?: Date) =>
+    apiClient.put(`/api/assignments/${id}/complete`, { completedDate }),
 };
 
 // CallLog endpoints

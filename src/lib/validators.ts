@@ -61,7 +61,7 @@ export const AssignmentCreateSchema = z.object({
     .min(1, 'Assignment number must be between 1 and 10')
     .max(10, 'Assignment number must be between 1 and 10'),
   status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED', 'NOT_DEFINED']).optional(),
-  completedDate: z.date().optional(),
+  completedDate: z.coerce.date().optional(),
   notes: z.string().optional(),
   studentId: z.string().min(1, 'Student ID is required'),
 });
@@ -70,7 +70,7 @@ export const AssignmentUpdateSchema = AssignmentCreateSchema.partial().omit({ st
 
 export const AssignmentStatusSchema = z.object({
   status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED', 'NOT_DEFINED']),
-  completedDate: z.date().optional(),
+  completedDate: z.coerce.date().optional(),
   notes: z.string().optional(),
 });
 
@@ -81,19 +81,19 @@ export const AssignmentBulkSubmitSchema = z.object({
     .min(1, 'Assignment number must be between 1 and 10')
     .max(10, 'Assignment number must be between 1 and 10'),
   emails: z.array(z.string().email('Invalid email')).min(1, 'At least one email is required'),
-  completedDate: z.date().optional(),
+  completedDate: z.coerce.date().optional(),
 });
 
 // ==================== CALLLOG SCHEMAS ====================
 
 export const CallLogCreateSchema = z.object({
-  date: z.date().refine((date) => date <= new Date(), 'Date cannot be in the future'),
+  date: z.coerce.date().refine((date) => date <= new Date(), 'Date cannot be in the future'),
   status: z.enum(['RECEIVED', 'NOT_RECEIVED', 'PHONE_OFF', 'SWITCHED_OFF', 'FOREIGN_NUMBER']),
   notes: z.string().optional(),
   calledBy: z.string().optional(),
   issues: z.string().optional(),
   promised: z.string().optional(),
-  nextFollowUp: z.date().optional(),
+  nextFollowUp: z.coerce.date().optional(),
   studentId: z.string().min(1, 'Student ID is required'),
 });
 
@@ -106,23 +106,23 @@ export const CallLogBatchSchema = z.object({
 // ==================== FOLLOWUP SCHEMAS ====================
 
 export const FollowUpCreateSchema = z.object({
-  date: z.date().refine((date) => date > new Date(), 'Date must be in the future'),
+  date: z.coerce.date().refine((date) => date > new Date(), 'Date must be in the future'),
   note: z.string().min(1, 'Follow-up note is required'),
   studentId: z.string().min(1, 'Student ID is required'),
 });
 
 export const FollowUpUpdateSchema = z.object({
-  date: z
+  date: z.coerce
     .date()
     .refine((date) => date > new Date(), 'Date must be in the future')
     .optional(),
   note: z.string().min(1, 'Follow-up note is required').optional(),
   status: z.enum(['pending', 'completed', 'overdue']).optional(),
-  completedDate: z.date().optional(),
+  completedDate: z.coerce.date().optional(),
 });
 
 export const FollowUpCompleteSchema = z.object({
-  completedDate: z.date().optional(),
+  completedDate: z.coerce.date().optional(),
 });
 
 // ==================== UTILITY SCHEMAS ====================

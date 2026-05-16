@@ -1,14 +1,16 @@
 import Link from 'next/link';
-import { Phone, ChevronRight } from 'lucide-react';
+import { Phone, ChevronRight, CheckCircle } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { StudentAvatar } from '@/components/Students/StudentAvatar';
+import { getStatusBadgeClass } from '@/lib/ui-helpers';
 
 interface CallQueueProps {
   students: StudentWithRelations[];
+  onRefresh?: () => void;
 }
 
-export function CallQueue({ students }: CallQueueProps) {
+export function CallQueue({ students, onRefresh }: CallQueueProps) {
   return (
     <div className="bg-background rounded-xl border shadow-sm flex flex-col h-full">
       <div className="px-6 py-4 border-b">
@@ -26,28 +28,46 @@ export function CallQueue({ students }: CallQueueProps) {
           </div>
         ) : (
           students.map((s) => (
-            <Link
+            <div
               key={s._id}
-              href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)}
-              className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors group"
+              className="px-5 py-3.5 hover:bg-muted/30 transition-colors flex items-center justify-between group"
             >
-              <div className="flex items-center gap-3">
+              <Link
+                href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)}
+                className="flex items-center gap-3 flex-1"
+              >
                 <StudentAvatar name={s.name} size="sm" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-semibold">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">{s.phone}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-muted-foreground">{s.phone || 'No phone'}</p>
+                    <span
+                      className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border ${getStatusBadgeClass(s.currentStatus!)}`}
+                    >
+                      {s.currentStatus}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
+              </Link>
+              <Link href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)} className="ml-2">
+                <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </Link>
+            </div>
           ))
         )}
       </div>
 
-      <div className="px-5 py-4 border-t">
-        <button className="w-full px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors">
-          Process Queue
+      <div className="px-5 py-4 border-t space-y-2">
+        <button
+          onClick={onRefresh}
+          className="w-full px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors flex items-center justify-center gap-2"
+        >
+          <CheckCircle className="w-4 h-4" />
+          Refresh Queue
         </button>
+        <p className="text-[11px] text-muted-foreground text-center">
+          {students.length} students need follow-up
+        </p>
       </div>
     </div>
   );

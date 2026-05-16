@@ -10,6 +10,16 @@ import { StudentAvatar } from './StudentAvatar';
 
 interface StudentsTableProps {
   students: StudentWithRelations[];
+  currentPage?: number;
+  totalPages?: number;
+  totalStudents?: number;
+  onPageChange?: (page: number) => void;
+  isLoading?: boolean;
+  search?: string;
+  onSearchChange?: (search: string) => void;
+  statusFilter?: string;
+  onStatusFilterChange?: (status: string) => void;
+  onResetFilters?: () => void;
 }
 
 const STATUS_OPTIONS: { label: string; value: string }[] = [
@@ -21,15 +31,39 @@ const STATUS_OPTIONS: { label: string; value: string }[] = [
   { label: 'Dropped', value: 'Dropped' },
 ];
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
-export function StudentsTable({ students }: StudentsTableProps) {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [page, setPage] = useState(1);
+export function StudentsTable({
+  students,
+  currentPage = 1,
+  totalPages = 1,
+  totalStudents = 0,
+  onPageChange,
+  isLoading = false,
+  search = '',
+  onSearchChange,
+  statusFilter = 'all',
+  onStatusFilterChange,
+  onResetFilters,
+}: StudentsTableProps) {
+  // Use provided state if callbacks exist, otherwise use local state
+  const hasExternalState = !!onSearchChange && !!onStatusFilterChange && !!onResetFilters;
+  const [localSearch, setLocalSearch] = useState('');
+  const [localStatusFilter, setLocalStatusFilter] = useState('all');
+
+  const effectiveSearch = hasExternalState ? search : localSearch;
+  const effectiveStatusFilter = hasExternalState ? statusFilter : localStatusFilter;
+
+  // Use server-side pagination if onPageChange is provided, otherwise use client-side
+  const isServerPaginated = !!onPageChange;
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    // Skip filtering if using server-side pagination
+    if (isServerPaginated) {
+      return students;
+    }
+
+    const q = effectiveSearch.toLowerCase();
 
     return students.filter((s) => {
       const matchSearch =
@@ -37,44 +71,63 @@ export function StudentsTable({ students }: StudentsTableProps) {
         s.email.toLowerCase().includes(q) ||
         (s.phone ?? '').includes(q);
 
-      const matchStatus = statusFilter === 'all' || s.currentStatus === statusFilter;
+      const matchStatus =
+        effectiveStatusFilter === 'all' || s.currentStatus === effectiveStatusFilter;
 
       return matchSearch && matchStatus;
     });
-  }, [students, search, statusFilter]);
+  }, [students, effectiveSearch, effectiveStatusFilter, isServerPaginated]);
 
-  // ✅ FIX: safe total pages (never 0)
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-
-  // ✅ FIX: clamp page when data changes
-  useEffect(() => {
-    setPage((prev) => {
-      if (prev > totalPages) return totalPages;
-      if (prev < 1) return 1;
-      return prev;
-    });
-  }, [totalPages]);
+  // Client-side pagination
+  const clientTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const [clientPage, setClientPage] = useState(1);
 
   const paginated = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
+    if (isServerPaginated) {
+      return students;
+    }
+    const start = (clientPage - 1) * PAGE_SIZE;
     const end = start + PAGE_SIZE;
     return filtered.slice(start, end);
-  }, [filtered, page]);
+  }, [filtered, clientPage, isServerPaginated, students]);
+
+  const displayPage = isServerPaginated ? currentPage : clientPage;
+  const displayTotalPages = isServerPaginated ? totalPages : clientTotalPages;
 
   const handleSearch = (val: string) => {
-    setSearch(val);
-    setPage(1);
+    if (hasExternalState && onSearchChange) {
+      onSearchChange(val);
+    } else {
+      setLocalSearch(val);
+      setClientPage(1);
+    }
   };
 
   const handleFilter = (val: string) => {
-    setStatusFilter(val);
-    setPage(1);
+    if (hasExternalState && onStatusFilterChange) {
+      onStatusFilterChange(val);
+    } else {
+      setLocalStatusFilter(val);
+      setClientPage(1);
+    }
   };
 
   const resetFilters = () => {
-    setSearch('');
-    setStatusFilter('all');
-    setPage(1);
+    if (hasExternalState && onResetFilters) {
+      onResetFilters();
+    } else {
+      setLocalSearch('');
+      setLocalStatusFilter('all');
+      setClientPage(1);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (isServerPaginated && onPageChange) {
+      onPageChange(page);
+    } else {
+      setClientPage(page);
+    }
   };
 
   return (
@@ -86,7 +139,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
           <input
             type="text"
             placeholder="Search by name, email, or phone..."
-            value={search}
+            value={effectiveSearch}
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
@@ -94,7 +147,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
 
         <div className="flex items-center gap-2">
           <select
-            value={statusFilter}
+            value={effectiveStatusFilter}
             onChange={(e) => handleFilter(e.target.value)}
             className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
@@ -231,27 +284,36 @@ export function StudentsTable({ students }: StudentsTableProps) {
       {/* Pagination */}
       <div className="px-6 py-4 border-t bg-muted/10 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Showing {paginated.length} of {filtered.length} students
+          Showing {paginated.length} of {isServerPaginated ? totalStudents : filtered.length}{' '}
+          students
         </p>
 
-        {totalPages > 1 && (
+        {displayTotalPages > 1 && (
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              onClick={() => handlePageChange(Math.max(1, displayPage - 1))}
+              disabled={displayPage === 1 || isLoading}
               className="p-1.5 rounded border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            {Array.from({ length: Math.min(displayTotalPages, 10) }, (_, i) => {
+              // Show first 10 page numbers, or adjust to show current page in range
+              const pageNum = i + 1;
+              if (displayTotalPages <= 10) return pageNum;
+              if (displayPage <= 5) return pageNum;
+              if (displayPage > displayTotalPages - 5) return displayTotalPages - 9 + i;
+              return displayPage - 5 + i + 1;
+            }).map((p) => (
               <button
                 key={p}
-                onClick={() => setPage(p)}
+                onClick={() => handlePageChange(p)}
+                disabled={isLoading}
                 className={`w-8 h-8 rounded border text-sm font-medium transition-colors ${
-                  p === page
+                  p === displayPage
                     ? 'bg-primary text-primary-foreground border-primary'
-                    : 'hover:bg-muted'
+                    : 'hover:bg-muted disabled:opacity-40'
                 }`}
               >
                 {p}
@@ -259,8 +321,8 @@ export function StudentsTable({ students }: StudentsTableProps) {
             ))}
 
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              onClick={() => handlePageChange(Math.min(displayTotalPages, displayPage + 1))}
+              disabled={displayPage === displayTotalPages || isLoading}
               className="p-1.5 rounded border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight className="w-4 h-4" />

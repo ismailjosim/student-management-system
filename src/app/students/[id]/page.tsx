@@ -17,44 +17,41 @@ interface StudentDetailPageProps {
 }
 
 export default function StudentDetailPage({ params }: StudentDetailPageProps) {
-  const [id, setId] = useState<string>('');
+  const [studentId, setStudentId] = useState<string>('');
   const [student, setStudent] = useState<StudentWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchStudent = async (studentId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await studentApi.getById(studentId);
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      if (response.data) {
+        setStudent(response.data as StudentWithRelations);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch student';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     params.then((p) => {
-      setId(p.id);
+      if (p.id) {
+        setStudentId(p.id);
+        fetchStudent(p.id);
+      }
     });
   }, [params]);
-
-  useEffect(() => {
-    if (!id) return;
-
-    const fetchStudent = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await studentApi.getById(id);
-
-        if (response.error) {
-          throw new Error(response.error);
-        }
-
-        if (response.data) {
-          setStudent(response.data as StudentWithRelations);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to fetch student';
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStudent();
-  }, [id]);
 
   if (loading) {
     return (
@@ -129,14 +126,18 @@ export default function StudentDetailPage({ params }: StudentDetailPageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
         <div className="space-y-6">
-          <StudentProfileCard student={student} />
-          <AssignmentChecklist assignments={assignments} studentId={id} />
+          <StudentProfileCard student={student} onUpdate={() => fetchStudent(studentId)} />
+          <AssignmentChecklist
+            assignments={assignments}
+            studentId={studentId}
+            onUpdate={() => fetchStudent(studentId)}
+          />
         </div>
 
         {/* Right Column */}
         <div className="lg:col-span-2 space-y-6">
-          <CallLogSection callLogs={callLogs} studentId={id} />
-          <FollowUpSection followUps={followUps} studentId={id} />
+          <CallLogSection callLogs={callLogs} studentId={studentId} />
+          <FollowUpSection followUps={followUps} studentId={studentId} />
         </div>
       </div>
     </div>

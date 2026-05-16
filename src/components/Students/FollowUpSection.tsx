@@ -26,12 +26,19 @@ export function FollowUpSection({ followUps: initialFollowUps, studentId }: Foll
       setSubmitting(true);
       setError(null);
 
-      if (!form.date || !form.note) {
+      if (!form.date || !form.note.trim()) {
         throw new Error('Please fill in all fields');
       }
 
+      // Convert date string to Date object
+      const followUpDate = new Date(form.date);
+      if (isNaN(followUpDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+
       const response = await followUpApi.create({
-        ...form,
+        date: followUpDate,
+        note: form.note.trim(),
         studentId,
       });
 

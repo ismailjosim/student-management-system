@@ -14,21 +14,43 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<StudentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await studentApi.getAll();
+        const response = await studentApi.getAllPaginated(
+          currentPage,
+          PAGE_SIZE,
+          search,
+          statusFilter
+        );
 
         if (response.error) {
           throw new Error(response.error);
         }
 
         const data = response.data;
+
         if (Array.isArray(data)) {
           setStudents(data);
+          // Extract pagination from rawResponse
+          if ((response as any).rawResponse?.pagination) {
+            console.log(
+              'Setting pagination from rawResponse:',
+              (response as any).rawResponse.pagination
+            );
+            setTotalPages((response as any).rawResponse.pagination.pages || 1);
+            setTotalStudents((response as any).rawResponse.pagination.total || 0);
+          }
         } else if (
           data &&
           typeof data === 'object' &&
@@ -36,6 +58,11 @@ export default function StudentsPage() {
           Array.isArray((data as any).data)
         ) {
           setStudents((data as any).data);
+          // Extract pagination from rawResponse
+          if ((response as any).rawResponse?.pagination) {
+            setTotalPages((response as any).rawResponse.pagination.pages || 1);
+            setTotalStudents((response as any).rawResponse.pagination.total || 0);
+          }
         } else if (
           data &&
           typeof data === 'object' &&
@@ -44,6 +71,11 @@ export default function StudentsPage() {
           Array.isArray((data as any).data)
         ) {
           setStudents((data as any).data);
+          // Extract pagination from rawResponse
+          if ((response as any).rawResponse?.pagination) {
+            setTotalPages((response as any).rawResponse.pagination.pages || 1);
+            setTotalStudents((response as any).rawResponse.pagination.total || 0);
+          }
         } else {
           setStudents([]);
         }
@@ -57,7 +89,23 @@ export default function StudentsPage() {
     };
 
     fetchStudents();
-  }, []);
+  }, [currentPage, search, statusFilter]);
+
+  const handleSearchChange = (searchTerm: string) => {
+    setSearch(searchTerm);
+    setCurrentPage(1); // Reset to page 1 when searching
+  };
+
+  const handleStatusChange = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1); // Reset to page 1 when filtering
+  };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setCurrentPage(1);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -109,7 +157,19 @@ export default function StudentsPage() {
           <div className="h-64 bg-muted rounded-lg" />
         </div>
       ) : (
-        <StudentsTable students={students} />
+        <StudentsTable
+          students={students}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalStudents={totalStudents}
+          onPageChange={setCurrentPage}
+          isLoading={loading}
+          search={search}
+          onSearchChange={handleSearchChange}
+          statusFilter={statusFilter}
+          onStatusFilterChange={handleStatusChange}
+          onResetFilters={handleResetFilters}
+        />
       )}
     </div>
   );

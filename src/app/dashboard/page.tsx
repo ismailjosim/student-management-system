@@ -6,19 +6,22 @@ import { DashboardStats } from '@/components/Dashboard/DashboardStats';
 import { FailingStudentsTable } from '@/components/Dashboard/FailingStudentsTable';
 import { CallQueue } from '@/components/Dashboard/CallQueue';
 import { SubmissionDistribution } from '@/components/Dashboard/SubmissionDistribution';
-import { dashboardApi } from '@/lib/api-client';
+import { AssignmentCompletionStats } from '@/components/Dashboard/AssignmentCompletionStats';
+import { dashboardApi, studentApi } from '@/lib/api-client';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import type { DashboardStats as DashboardStatsType, StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStatsType | null>(null);
+  const [allStudents, setAllStudents] = useState<StudentWithRelations[]>([]);
   const [failingStudents, setFailingStudents] = useState<StudentWithRelations[]>([]);
   const [callQueueStudents, setCallQueueStudents] = useState<StudentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -36,8 +39,18 @@ export default function DashboardPage() {
           setStats(statsResponse.data as DashboardStatsType);
         }
 
-        // Fetch failing students
-        const failingResponse = await dashboardApi.getFailingStudents(1, 10);
+        // Fetch all students for submission distribution
+        const allStudentsResponse = await studentApi.getAll();
+        if (
+          allStudentsResponse.data &&
+          typeof allStudentsResponse.data === 'object' &&
+          'data' in allStudentsResponse.data
+        ) {
+          setAllStudents((allStudentsResponse.data as any).data || []);
+        }
+
+        // Fetch failing students (at risk)
+        const failingResponse = await dashboardApi.getFailingStudents(1, 100);
         if (failingResponse.error) {
           throw new Error(failingResponse.error);
         }
@@ -51,7 +64,7 @@ export default function DashboardPage() {
         }
 
         // Fetch call queue (students needing calls - At Risk and Behind)
-        const callQueueResponse = await dashboardApi.getFailingStudents(1, 8);
+        const callQueueResponse = await dashboardApi.getFailingStudents(1, 15);
         if (callQueueResponse.error) {
           throw new Error(callQueueResponse.error);
         }
@@ -81,6 +94,35 @@ export default function DashboardPage() {
     const interval = setInterval(fetchDashboardData, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const filteredFailingStudents =
+    statusFilter === 'all'
+      ? failingStudents
+      : failingStudents.filter((s) => s.currentStatus === statusFilter);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const statsResponse = await dashboardApi.getStats();
+      if (statsResponse.data) {
+        setStats(statsResponse.data as DashboardStatsType);
+      }
+      const failingResponse = await dashboardApi.getFailingStudents(1, 100);
+      if (failingResponse.data && 'data' in failingResponse.data) {
+        setFailingStudents((failingResponse.data as any).data || []);
+      }
+      const callQueueResponse = await dashboardApi.getFailingStudents(1, 15);
+      if (callQueueResponse.data && 'data' in callQueueResponse.data) {
+        setCallQueueStudents((callQueueResponse.data as any).data || []);
+      }
+      setLastUpdated(new Date());
+      toast.success('Dashboard refreshed');
+    } catch (err) {
+      toast.error('Failed to refresh dashboard');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleExportCallList = () => {
     try {
@@ -138,6 +180,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={handleRefresh}
             disabled={refreshing}
             className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 transition-colors disabled:opacity-50"
           >
@@ -171,14 +214,37 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       {stats && <DashboardStats stats={stats} />}
 
+      {/* Assignment Completion Stats */}
+      {allStudents.length > 0 && <AssignmentCompletionStats students={allStudents} />}
+
       {/* Charts + Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {failingStudents.length > 0 && <SubmissionDistribution students={failingStudents} />}
-          <FailingStudentsTable students={failingStudents} />
+          {allStudents.length > 0 && <SubmissionDistribution students={allStudents} />}
+
+          {/* Students at Risk Table with Filter */}
+          <div>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-sm font-medium">Filter by Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-1.5 border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="all">All At Risk</option>
+                <option value="At Risk">At Risk</option>
+                <option value="Behind">Behind</option>
+                <option value="Dropped">Dropped</option>
+              </select>
+              <span className="text-xs text-muted-foreground ml-auto">
+                Showing {filteredFailingStudents.length} of {failingStudents.length}
+              </span>
+            </div>
+            <FailingStudentsTable students={filteredFailingStudents} />
+          </div>
         </div>
         <div>
-          <CallQueue students={callQueueStudents} />
+          <CallQueue students={callQueueStudents} onRefresh={handleRefresh} />
         </div>
       </div>
     </div>
