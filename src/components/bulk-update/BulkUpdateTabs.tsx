@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Zap, UserPlus, CheckCircle2, XCircle, Upload, AlertCircle } from 'lucide-react';
+import { Zap, UserPlus, CheckCircle2, XCircle, Upload, AlertCircle, Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/cn';
 import { processAssignmentImportFile } from '@/lib/file-parser';
 
-type Tab = 'assignment' | 'student';
+type Tab = 'assignment' | 'mentorship' | 'student';
 
 interface BulkResult {
   matched: number;
@@ -33,6 +33,10 @@ export function BulkUpdateTabs() {
   const [assignmentNum, setAssignmentNum] = useState(1);
   const [emailsText, setEmailsText] = useState('');
   const [file, setFile] = useState<File | null>(null);
+
+  // Mentorship update state
+  const [mentorshipStatus, setMentorshipStatus] = useState<boolean>(true);
+  const [mentorshipEmails, setMentorshipEmails] = useState('');
 
   // Student upsert state
   const [studentData, setStudentData] = useState('');
@@ -199,6 +203,85 @@ export function BulkUpdateTabs() {
     }
   };
 
+  const handleProcessMentorship = async () => {
+    try {
+      setProcessing(true);
+      setError(null);
+
+      const emails = parseEmails(mentorshipEmails);
+
+      if (emails.length === 0) {
+        setError('Please enter at least one email');
+        return;
+      }
+
+      // Call real API to match emails
+      const response = await fetch('/api/students/bulk-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.message || 'Failed to match emails');
+        return;
+      }
+
+      const { data } = result;
+
+      setResult({
+        matched: data.stats.matched,
+        unmatched: data.stats.unmatched,
+        unmatchedEmails: data.unmatched,
+        matchedStudents: data.matched,
+      });
+      setCommitted(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to process emails';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCommitMentorship = async () => {
+    try {
+      setProcessing(true);
+      const emails = parseEmails(mentorshipEmails);
+
+      // Call real API to submit mentorship status update
+      const response = await fetch('/api/students/bulk-update-mentorship', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails, mentorshipJoiningStatus: mentorshipStatus }),
+      });
+
+      const apiResult = await response.json();
+
+      if (!response.ok) {
+        setError(apiResult.message || 'Failed to update mentorship status');
+        toast.error(apiResult.message || 'Failed to update mentorship status');
+        return;
+      }
+
+      toast.success(
+        `Successfully updated ${result?.matched ?? 0} students to mentorship status: ${mentorshipStatus ? 'Active' : 'Inactive'}`
+      );
+      setCommitted(true);
+      setResult(null);
+      setMentorshipEmails('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to commit update';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   return (
     <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
       {/* Tabs */}
@@ -206,6 +289,7 @@ export function BulkUpdateTabs() {
         {(
           [
             { key: 'assignment', label: 'Assignment Update', icon: Zap },
+            { key: 'mentorship', label: 'Mentorship Update', icon: Heart },
             { key: 'student', label: 'Student Upsert', icon: UserPlus },
           ] as { key: Tab; label: string; icon: React.ElementType }[]
         ).map(({ key, label, icon: Icon }) => (
@@ -236,7 +320,9 @@ export function BulkUpdateTabs() {
             <span className="font-medium">
               {activeTab === 'assignment'
                 ? `Successfully updated ${result?.matched ?? 0} students for ${ASSIGNMENTS[assignmentNum - 1].label}.`
-                : 'Student records processed successfully.'}
+                : activeTab === 'mentorship'
+                  ? `Successfully updated ${result?.matched ?? 0} students to mentorship status: ${mentorshipStatus ? 'Active' : 'Inactive'}.`
+                  : 'Student records processed successfully.'}
             </span>
           </div>
         )}
@@ -430,6 +516,131 @@ export function BulkUpdateTabs() {
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Zap className="w-4 h-4" />
+                  {processing ? 'Processing...' : 'Process'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'mentorship' && (
+          <div className="space-y-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold">Mentorship Status</label>
+              <select
+                value={mentorshipStatus ? 'active' : 'inactive'}
+                onChange={(e) => setMentorshipStatus(e.target.value === 'active')}
+                disabled={processing}
+                className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full md:w-64 disabled:opacity-50"
+              >
+                <option value="active">Active (True)</option>
+                <option value="inactive">Inactive (False)</option>
+              </select>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">
+                Paste emails below (one per line)
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between">
+                <label className="text-sm font-semibold">Email List</label>
+                <span className="text-xs text-muted-foreground">
+                  {parseEmails(mentorshipEmails).length} email(s) entered
+                </span>
+              </div>
+              <textarea
+                value={mentorshipEmails}
+                onChange={(e) => {
+                  setMentorshipEmails(e.target.value);
+                  setResult(null);
+                  setCommitted(false);
+                }}
+                disabled={processing}
+                placeholder={'student1@example.com\nstudent2@example.com\nstudent3@example.com'}
+                rows={8}
+                className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
+              />
+            </div>
+
+            {/* Result Preview */}
+            {result && !committed && (
+              <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+                <p className="text-sm font-semibold">Preview</p>
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2 text-sm text-green-700">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>
+                      <strong>{result.matched}</strong> matched
+                    </span>
+                  </div>
+                  {result.unmatched > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-red-600">
+                      <XCircle className="w-4 h-4" />
+                      <span>
+                        <strong>{result.unmatched}</strong> not found
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {result.matchedStudents && result.matchedStudents.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Matched Students ({result.matchedStudents.length}):
+                    </p>
+                    <div className="text-xs space-y-1 max-h-40 overflow-y-auto bg-white rounded p-2">
+                      {result.matchedStudents.map((s) => (
+                        <div key={s.studentId} className="text-green-700">
+                          <span className="font-mono">{s.email}</span> -{' '}
+                          <span className="font-medium">{s.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {result.unmatchedEmails.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Unmatched ({result.unmatchedEmails.length}):
+                    </p>
+                    <div className="text-xs font-mono text-red-600 space-y-0.5 max-h-40 overflow-y-auto">
+                      {result.unmatchedEmails.map((e) => (
+                        <div key={e}>{e}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleCommitMentorship}
+                    disabled={processing}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    {processing ? 'Updating...' : 'Confirm & Apply'}
+                  </button>
+                  <button
+                    onClick={() => setResult(null)}
+                    disabled={processing}
+                    className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!result && !committed && (
+              <div className="flex justify-end">
+                <button
+                  onClick={handleProcessMentorship}
+                  disabled={parseEmails(mentorshipEmails).length === 0 || processing}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Heart className="w-4 h-4" />
                   {processing ? 'Processing...' : 'Process'}
                 </button>
               </div>
