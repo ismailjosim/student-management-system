@@ -1,8 +1,8 @@
 export async function getAllStudentsService(page = 1, limit = 10, searchTerm = '') {
-  const baseUrl = process.env.NEXTAUTH_API_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   if (!baseUrl) {
-    throw new Error('NEXTAUTH_API_URL is not defined');
+    throw new Error('NEXT_PUBLIC_API_URL is not defined');
   }
 
   const params = new URLSearchParams({

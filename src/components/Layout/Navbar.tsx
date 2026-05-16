@@ -12,7 +12,7 @@ import {
   LogOut,
   User,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { APP_NAME } from '@/lib/constants';
 import { PAGE_ROUTES } from '@/lib/constants';
@@ -28,21 +28,42 @@ export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
+  const [currentAssignment, setCurrentAssignment] = useState<string | null>(null);
+  const [isLoadingAssignment, setIsLoadingAssignment] = useState(true);
+
+  useEffect(() => {
+    const fetchCurrentAssignment = async () => {
+      try {
+        setIsLoadingAssignment(true);
+        const response = await fetch('/api/settings');
+        const data = await response.json();
+        if (data.success && data.data?.currentAssignment) {
+          setCurrentAssignment(data.data.currentAssignment);
+        }
+      } catch (error) {
+        console.error('Failed to fetch current assignment:', error);
+        setCurrentAssignment('A-01');
+      } finally {
+        setIsLoadingAssignment(false);
+      }
+    };
+    fetchCurrentAssignment();
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 shadow-sm ">
+      <div className="flex items-center justify-between container mx-auto py-3 px-0">
         {/* Logo */}
         <Link
           href={PAGE_ROUTES.DASHBOARD}
-          className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary hover:opacity-80 transition-opacity "
         >
           <GraduationCap className="w-6 h-6" />
           <span>{APP_NAME}</span>
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1 ">
           {navLinks.map(({ label, href, icon: Icon }) => {
             const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
             return (
@@ -63,8 +84,20 @@ export function Navbar() {
           })}
         </nav>
 
+        {/* Current Assignment Badge */}
+        <div className="hidden md:flex px-3 py-1.5 bg-linear-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full items-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          {isLoadingAssignment ? (
+            <div className="h-4 w-16 bg-gray-300 rounded animate-pulse" />
+          ) : (
+            <span className="text-xs font-semibold text-green-900">
+              Current: <span className="font-bold">{currentAssignment}</span>
+            </span>
+          )}
+        </div>
+
         {/* User Section */}
-        <div className="flex items-center gap-4">
+        <div className="hidden items-center gap-4">
           {session?.user ? (
             <div className="hidden md:flex items-center gap-3">
               <div className="flex items-center gap-2">

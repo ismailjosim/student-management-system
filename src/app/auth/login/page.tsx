@@ -167,3 +167,11 @@ function LoginContent() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
+  );
+}

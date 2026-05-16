@@ -33,7 +33,7 @@ export default function RootLayout({
         <AuthProvider>
           <Toaster position="top-center" />
           <Navbar />
-          <main className="grow w-full max-w-7xl mx-auto px-4 lg:px-8 py-6">{children}</main>
+          <main className="min-h-screen container mx-auto">{children}</main>
           <Footer />
         </AuthProvider>
       </body>

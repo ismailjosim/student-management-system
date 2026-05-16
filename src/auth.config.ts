@@ -118,6 +118,6 @@ export const authConfig = {
       return session;
     },
   },
-
+  trustHost: true,
   secret: process.env.AUTH_SECRET,
 } satisfies NextAuthConfig;

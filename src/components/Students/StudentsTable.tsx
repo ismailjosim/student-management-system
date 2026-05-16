@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, RefreshCw, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { getStatusBadgeClass, getLastAssignmentNumber } from '@/lib/ui-helpers';
@@ -50,6 +50,14 @@ export function StudentsTable({
   const hasExternalState = !!onSearchChange && !!onStatusFilterChange && !!onResetFilters;
   const [localSearch, setLocalSearch] = useState('');
   const [localStatusFilter, setLocalStatusFilter] = useState('all');
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    studentId?: string;
+    studentName?: string;
+  }>({
+    isOpen: false,
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const effectiveSearch = hasExternalState ? search : localSearch;
   const effectiveStatusFilter = hasExternalState ? statusFilter : localStatusFilter;
@@ -128,6 +136,43 @@ export function StudentsTable({
     } else {
       setClientPage(page);
     }
+  };
+
+  const handleDeleteClick = (studentId: string, studentName: string) => {
+    setDeleteModal({ isOpen: true, studentId, studentName });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.studentId) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/students/${deleteModal.studentId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete student');
+      }
+
+      // Close modal
+      setDeleteModal({ isOpen: false });
+
+      // Refresh the page or trigger parent refresh
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      alert(
+        `Failed to delete student: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModal({ isOpen: false });
   };
 
   return (
@@ -265,13 +310,23 @@ export function StudentsTable({
                     </td>
 
                     <td className="px-6 py-3 text-right">
-                      <Link
-                        href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        title="View profile"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="View profile"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteClick(s._id!, s.name)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-md hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-600"
+                          title="Delete student"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -330,6 +385,44 @@ export function StudentsTable({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg border shadow-lg max-w-sm w-full mx-4">
+            <div className="px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold">Delete Student</h2>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-sm text-foreground mb-2">
+                Are you sure you want to delete <strong>{deleteModal.studentName}</strong>?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This action will permanently remove the student and all related data including
+                assignments, call logs, and follow-ups from the database. This cannot be undone.
+              </p>
+            </div>
+
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button
+                onClick={handleCancelDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 border rounded-md hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

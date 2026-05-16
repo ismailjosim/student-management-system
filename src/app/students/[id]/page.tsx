@@ -6,6 +6,7 @@ import { ChevronLeft, AlertCircle } from 'lucide-react';
 import { studentApi } from '@/lib/api-client';
 import { StudentProfileCard } from '@/components/Students/StudentProfileCard';
 import { AssignmentChecklist } from '@/components/Students/AssignmentChecklist';
+import { TrackingSection } from '@/components/Students/TrackingSection';
 import { CallLogSection } from '@/components/Students/CallLogSection';
 import { FollowUpSection } from '@/components/Students/FollowUpSection';
 import { PAGE_ROUTES } from '@/lib/constants';
@@ -136,6 +137,11 @@ export default function StudentDetailPage({ params }: StudentDetailPageProps) {
 
         {/* Right Column */}
         <div className="lg:col-span-2 space-y-6">
+          <TrackingSection
+            student={student}
+            assignments={assignments}
+            onUpdate={() => fetchStudent(studentId)}
+          />
           <CallLogSection callLogs={callLogs} studentId={studentId} />
           <FollowUpSection followUps={followUps} studentId={studentId} />
         </div>

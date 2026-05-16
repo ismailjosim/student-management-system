@@ -172,7 +172,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-300 ">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -205,7 +205,7 @@ export default function DashboardPage() {
 
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+        <div className="flex items-center gap-3 p-4 px-0 bg-destructive/10 border border-destructive/20 rounded-lg">
           <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium text-destructive">{error}</p>

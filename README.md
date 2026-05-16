@@ -124,7 +124,7 @@ MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/mentortrack
 
 # NextAuth
 NEXTAUTH_SECRET=your-secret-key-here
-NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_AUTH_URL=http://localhost:3000
 
 # Environment
 ENVIRONMENT=development
