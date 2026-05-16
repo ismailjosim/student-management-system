@@ -40,13 +40,13 @@ export default function DashboardPage() {
         }
 
         // Fetch all students for submission distribution
-        const allStudentsResponse = await studentApi.getAll();
-        if (
-          allStudentsResponse.data &&
-          typeof allStudentsResponse.data === 'object' &&
-          'data' in allStudentsResponse.data
-        ) {
-          setAllStudents((allStudentsResponse.data as any).data || []);
+        const allStudentsResponse = await studentApi.getAllPaginated(1, 1000);
+        if (allStudentsResponse.data) {
+          // Handle both array response and object with data property
+          const studentData = Array.isArray(allStudentsResponse.data)
+            ? allStudentsResponse.data
+            : (allStudentsResponse.data as any).data || [];
+          setAllStudents(studentData);
         }
 
         // Fetch failing students (at risk)
@@ -108,12 +108,18 @@ export default function DashboardPage() {
         setStats(statsResponse.data as DashboardStatsType);
       }
       const failingResponse = await dashboardApi.getFailingStudents(1, 100);
-      if (failingResponse.data && 'data' in failingResponse.data) {
-        setFailingStudents((failingResponse.data as any).data || []);
+      if (failingResponse.data) {
+        const failingData = Array.isArray(failingResponse.data)
+          ? failingResponse.data
+          : (failingResponse.data as any).data || [];
+        setFailingStudents(failingData);
       }
       const callQueueResponse = await dashboardApi.getFailingStudents(1, 15);
-      if (callQueueResponse.data && 'data' in callQueueResponse.data) {
-        setCallQueueStudents((callQueueResponse.data as any).data || []);
+      if (callQueueResponse.data) {
+        const queueData = Array.isArray(callQueueResponse.data)
+          ? callQueueResponse.data
+          : (callQueueResponse.data as any).data || [];
+        setCallQueueStudents(queueData);
       }
       setLastUpdated(new Date());
       toast.success('Dashboard refreshed');

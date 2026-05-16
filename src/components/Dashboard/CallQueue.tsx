@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Phone, ChevronRight, CheckCircle } from 'lucide-react';
+import { Phone, ChevronRight, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { StudentAvatar } from '@/components/Students/StudentAvatar';
@@ -11,6 +11,29 @@ interface CallQueueProps {
 }
 
 export function CallQueue({ students, onRefresh }: CallQueueProps) {
+  const getPriorityIcon = (status: string) => {
+    switch (status) {
+      case 'Dropped':
+        return <AlertCircle className="w-4 h-4 text-red-600" />;
+      case 'At Risk':
+        return <AlertCircle className="w-4 h-4 text-amber-600" />;
+      case 'Behind':
+        return <Clock className="w-4 h-4 text-blue-600" />;
+      default:
+        return null;
+    }
+  };
+
+  const getDaysSinceContact = (lastContactedAt: string | Date | null): string => {
+    if (!lastContactedAt) return 'Never';
+    const date = new Date(lastContactedAt);
+    const now = new Date();
+    const days = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    return `${days}d ago`;
+  };
+
   return (
     <div className="bg-background rounded-xl border shadow-sm flex flex-col h-full">
       <div className="px-6 py-4 border-b">
@@ -21,7 +44,7 @@ export function CallQueue({ students, onRefresh }: CallQueueProps) {
         <p className="text-xs text-muted-foreground mt-1">Students needing follow-up calls.</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto max-h-125 divide-y divide-border">
+      <div className="flex-1 overflow-y-auto divide-y divide-border">
         {students.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-muted-foreground italic">
             Queue is empty! 🎉
@@ -30,26 +53,39 @@ export function CallQueue({ students, onRefresh }: CallQueueProps) {
           students.map((s) => (
             <div
               key={s._id}
-              className="px-5 py-3.5 hover:bg-muted/30 transition-colors flex items-center justify-between group"
+              className="px-5 py-4 hover:bg-muted/40 transition-colors flex items-center justify-between group border-l-4 border-l-transparent hover:border-l-amber-500"
             >
               <Link
                 href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)}
-                className="flex items-center gap-3 flex-1"
+                className="flex items-center gap-3 flex-1 min-w-0"
               >
-                <StudentAvatar name={s.name} size="sm" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold">{s.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs text-muted-foreground">{s.phone || 'No phone'}</p>
+                <div className="shrink-0">
+                  <StudentAvatar name={s.name} size="sm" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold truncate">{s.name}</p>
+                    {getPriorityIcon(s.currentStatus!)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground truncate">
+                      {s.phone || 'No phone'}
+                    </p>
                     <span
-                      className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border ${getStatusBadgeClass(s.currentStatus!)}`}
+                      className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${getStatusBadgeClass(s.currentStatus!)}`}
                     >
                       {s.currentStatus}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last contact: {getDaysSinceContact(s.lastContactedAt ?? null)}
+                  </p>
                 </div>
               </Link>
-              <Link href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)} className="ml-2">
+              <Link
+                href={PAGE_ROUTES.STUDENT_DETAIL.replace(':id', s._id!)}
+                className="ml-2 shrink-0"
+              >
                 <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </Link>
             </div>
@@ -66,7 +102,7 @@ export function CallQueue({ students, onRefresh }: CallQueueProps) {
           Refresh Queue
         </button>
         <p className="text-[11px] text-muted-foreground text-center">
-          {students.length} students need follow-up
+          {students.length} student{students.length !== 1 ? 's' : ''} need follow-up
         </p>
       </div>
     </div>

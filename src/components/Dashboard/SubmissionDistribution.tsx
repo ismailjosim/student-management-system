@@ -1,9 +1,37 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+'use client';
+
 import type { StudentWithRelations } from '@/types';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
+import {
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
 interface SubmissionDistributionProps {
   students: StudentWithRelations[];
 }
+
+// Color palette for different assignment completion levels
+const COLORS = [
+  '#3b82f6',
+  '#0ea5e9',
+  '#06b6d4',
+  '#10b981',
+  '#8b5cf6',
+  '#ec4899',
+  '#f59e0b',
+  '#ef4444',
+  '#dc2626',
+  '#991b1b',
+];
 
 export function SubmissionDistribution({ students }: SubmissionDistributionProps) {
   // Count how many students completed each assignment (1–10)
@@ -13,9 +41,16 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
   );
 
   const total = students.length || 1;
-  const max = Math.max(...distribution, 1);
 
-  const completionPercentages = distribution.map((count) => Math.round((count / total) * 100));
+  // Prepare data for Recharts
+  const chartData = distribution.map((count, i) => {
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    return {
+      name: `A-${String(i + 1).padStart(2, '0')}`,
+      students: count,
+      percentage: pct,
+    };
+  });
 
   return (
     <div className="bg-background rounded-xl border shadow-sm">
@@ -28,27 +63,52 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
         </p>
       </div>
       <div className="p-6">
-        <div className="flex items-end justify-between gap-1.5 h-48">
-          {distribution.map((count, i) => {
-            const heightPct = (count / max) * 100;
-            const pct = completionPercentages[i];
-            return (
-              <div key={i} className="flex flex-col items-center flex-1 gap-1.5 group">
-                <span className="text-[11px] font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                  {count} ({pct}%)
-                </span>
-                <div
-                  className="w-full bg-gradient-to-t from-primary to-primary/60 hover:from-primary/90 hover:to-primary/50 rounded-t transition-colors relative"
-                  style={{ height: `${Math.max(heightPct, 5)}%` }}
-                  title={`A${i + 1}: ${count} students (${pct}%)`}
-                />
-                <span className="text-[10px] text-muted-foreground font-semibold">
-                  A-{String(i + 1).padStart(2, '0')}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 50, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.1)" />
+            <XAxis
+              dataKey="name"
+              stroke="hsl(var(--muted-foreground) / 0.7)"
+              tick={{ fill: 'hsl(var(--foreground))', fontSize: 13, fontWeight: 500 }}
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground) / 0.7)"
+              tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+              label={{
+                value: 'Students',
+                angle: -90,
+                position: 'insideLeft',
+                style: { fill: 'hsl(var(--foreground))' },
+              }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--background))',
+                border: '2px solid hsl(var(--border))',
+                borderRadius: '8px',
+                color: 'hsl(var(--foreground))',
+                zIndex: 1000,
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              }}
+              formatter={
+                ((value: number | string, name: string) => {
+                  if (name === 'students') {
+                    return [`${value} students`, 'Completed'];
+                  }
+                  return [value, name];
+                }) as any
+              }
+              labelStyle={{ color: 'hsl(var(--foreground))' }}
+              cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+            />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+            <Bar dataKey="students" radius={[8, 8, 0, 0]} name="Completed">
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
 
         {/* Stats Summary */}
         <div className="mt-6 grid grid-cols-2 gap-4 text-xs">
@@ -61,7 +121,7 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
               Completed All (A-10)
             </p>
             <p className="text-xl font-bold text-green-600 dark:text-green-400">
-              {distribution[9]}
+              {chartData[9]?.students || 0}
             </p>
           </div>
           <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">

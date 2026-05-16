@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
@@ -21,7 +22,7 @@ export default function AuthErrorPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -51,5 +52,24 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100">
+          <div className="w-full max-w-md">
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+              <p className="text-slate-600 mt-4">Loading...</p>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <AuthErrorContent />
+    </Suspense>
   );
 }

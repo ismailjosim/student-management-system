@@ -86,6 +86,7 @@ export interface StudentWithRelations {
   assignments?: any[];
   followUps?: any[];
   comments?: string[];
+  lastContactedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
