@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     // Invalidate student-related caches after bulk import/update
     if (created.length > 0 || updated > 0) {
-      invalidateStudentCache();
+      await invalidateStudentCache();
     }
 
     return NextResponse.json({

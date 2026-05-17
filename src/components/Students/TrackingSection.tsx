@@ -3,15 +3,16 @@
 import { useState, useMemo } from 'react';
 import { AlertCircle, CheckCircle2, TrendingDown, Zap, Flag } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
-import type { Assignment } from '@/interfaces/assignment.interface';
+
 import type { StudentStatus } from '@/models/Student';
 import { studentApi } from '@/lib/api-client';
 import { getCurrentActiveAssignment } from '@/lib/date-utils';
 import toast from 'react-hot-toast';
+import { StudentAssignment } from '@/interfaces/assignment.interface';
 
 interface TrackingSectionProps {
   student: StudentWithRelations;
-  assignments: Assignment[];
+  assignments: StudentAssignment[];
   onUpdate: () => void;
 }
 

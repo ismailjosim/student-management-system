@@ -1,6 +1,10 @@
 /**
  * Custom hook for fetching data with built-in caching
- * Simplifies cache management across the app
+ * Works with Next.js v16 force-cache on the server-side
+ * Uses in-memory cache for client-side components
+ *
+ * For server-side caching, use fetch with cache tags:
+ *   fetch(url, { next: { tags: ['students'] } })
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -21,7 +25,17 @@ interface UseCachedDataResult<T> {
 }
 
 /**
- * Hook for fetching data with automatic caching
+ * Hook for fetching data with automatic client-side caching
+ *
+ * Usage:
+ *   const { data, loading, error } = useCachedData(
+ *     () => fetch('/api/students').then(r => r.json()),
+ *     { cacheKey: 'all_students', cacheExpiry: 300 }
+ *   );
+ *
+ * Note: Server-side caching uses Next.js force-cache via fetch.
+ * This hook provides client-side in-memory caching for components.
+ *
  * @param fetcher - Async function that fetches data
  * @param options - Cache options (key, expiry time, skip flag)
  * @returns Object with data, loading, error, refetch, and invalidateCache
@@ -136,6 +150,7 @@ interface PaginationMeta {
 /**
  * Hook for fetching paginated data with caching
  * Only caches the first page (no filters)
+ * Integrates with Next.js v16 force-cache for server-side caching
  */
 interface UsePaginatedCachedDataOptions extends UseCachedDataOptions {
   page?: number;

@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Invalidate student-related caches
-    invalidateStudentCache(id);
+    await invalidateStudentCache(id);
 
     logger.info('PUT /api/students/[id]/status - Success', { id, status });
 

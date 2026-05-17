@@ -1,14 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Next.js v16 Server-Side Caching with force-cache and revalidation
- * Uses Next.js fetch caching instead of localStorage
+ * Next.js v16 Cache Management
+ * Client-side in-memory cache only.
+ * Server-side cache invalidation is handled directly in API routes/Server Actions
+ * via serverCacheManager from server-cache.ts
  */
 
-import { revalidateTag } from 'next/cache';
-
-/**
- * In-memory cache for client-side usage (mirrors server cache)
- * This is used by client components that need cached data
- */
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -30,7 +27,6 @@ class ServerSideCache {
       const now = Date.now();
       const ageSeconds = (now - entry.timestamp) / 1000;
 
-      // Check if cache has expired
       if (ageSeconds > entry.revalidateIn) {
         this.remove(key);
         return null;
@@ -45,6 +41,7 @@ class ServerSideCache {
 
   /**
    * Store data in memory cache (for client-side)
+   * Server-side caching is handled by Next.js force-cache
    * @param key Cache key
    * @param data Data to cache
    * @param revalidateIn Revalidation time in seconds (default: 300s/5min)
@@ -120,12 +117,10 @@ class ServerSideCache {
   getStats(): { totalEntries: number; sizes: Record<string, number> } {
     try {
       const sizes: Record<string, number> = {};
-      let totalSize = 0;
 
       for (const [key, entry] of this.memoryCache.entries()) {
         const size = JSON.stringify(entry.data).length;
         sizes[key.replace(this.prefix, '')] = size;
-        totalSize += size;
       }
 
       return {
@@ -153,6 +148,7 @@ export const CACHE_KEYS = {
   // Students
   ALL_STUDENTS: 'all_students',
   STUDENT_DETAIL: (id: string) => `student_${id}`,
+  STUDENT_LIST: 'student_list',
 
   // Assignments & Tracking
   ASSIGNMENTS: 'assignments',
@@ -173,8 +169,8 @@ export const CACHE_KEYS = {
 
 /**
  * Cache expiration times (in seconds)
- * Server-side fetch caching uses force-cache (indefinite until revalidation)
- * These durations are for client-side in-memory cache fallback
+ * These durations are for client-side in-memory cache only.
+ * Server-side uses Next.js force-cache (indefinite until revalidation).
  */
 export const CACHE_EXPIRY = {
   SHORT: 2 * 60, // 2 minutes
@@ -184,51 +180,45 @@ export const CACHE_EXPIRY = {
 } as const;
 
 /**
- * Cache invalidation strategy - keys that should be cleared on mutations
+ * Client-side cache invalidation triggers.
+ * For server-side invalidation, call serverCacheManager directly
+ * from your API routes or Server Actions.
  */
 export const CACHE_INVALIDATION_TRIGGERS = {
-  // When student is created/updated/deleted
   updateStudent: [
     CACHE_KEYS.ALL_STUDENTS,
+    CACHE_KEYS.STUDENT_LIST,
     CACHE_KEYS.FAILING_STUDENTS,
     CACHE_KEYS.CALL_QUEUE_STUDENTS,
     CACHE_KEYS.DASHBOARD_STATS,
     CACHE_KEYS.SUBMISSION_DATA,
   ],
-
-  // When assignment is updated
   updateAssignment: [
     CACHE_KEYS.ASSIGNMENTS,
     CACHE_KEYS.DASHBOARD_STATS,
     CACHE_KEYS.SUBMISSION_DATA,
   ],
-
-  // When call log is added
   addCallLog: [CACHE_KEYS.CALL_LOGS, CACHE_KEYS.CALL_STATISTICS],
-
-  // When follow-up is added
   addFollowUp: [CACHE_KEYS.FOLLOW_UPS, CACHE_KEYS.CALL_QUEUE_STUDENTS],
 } as const;
 
 /**
- * Helper functions for cache invalidation
- */
-
-/**
- * Invalidate cache after student mutation
+ * Client-side only cache invalidation helpers.
+ * These only clear the in-memory cache.
+ *
+ * For server cache invalidation, call serverCacheManager from server-cache.ts
+ * directly inside your API route or Server Action, e.g.:
+ *
+ *   import { serverCacheManager } from '@/lib/server-cache';
+ *   serverCacheManager.invalidateStudent(studentId);
  */
 export function invalidateStudentCache(studentId?: string): void {
   if (studentId) {
-    // Invalidate specific student and affected lists
     cache.remove(CACHE_KEYS.STUDENT_DETAIL(studentId));
   }
-  // Invalidate all student-related caches
   cache.invalidate(CACHE_INVALIDATION_TRIGGERS.updateStudent);
 }
 
-/**
- * Invalidate cache after assignment mutation
- */
 export function invalidateAssignmentCache(assignmentId?: string): void {
   if (assignmentId) {
     cache.remove(CACHE_KEYS.ASSIGNMENT_DETAIL(assignmentId));
@@ -236,78 +226,14 @@ export function invalidateAssignmentCache(assignmentId?: string): void {
   cache.invalidate(CACHE_INVALIDATION_TRIGGERS.updateAssignment);
 }
 
-/**
- * Invalidate cache after call log added
- */
 export function invalidateCallLogCache(): void {
   cache.invalidate(CACHE_INVALIDATION_TRIGGERS.addCallLog);
 }
 
-/**
- * Invalidate cache after follow-up added
- */
 export function invalidateFollowUpCache(): void {
   cache.invalidate(CACHE_INVALIDATION_TRIGGERS.addFollowUp);
 }
 
-/**
- * Clear all app caches (use sparingly, e.g., on logout)
- */
 export function clearAllCaches(): void {
   cache.clear();
-}
-
-/**
- * Server-side cache revalidation functions using Next.js revalidateTag
- * Use these in Server Actions to invalidate fetch caches
- */
-
-/**
- * Revalidate student-related caches on the server
- */
-export async function revalidateStudentCaches(): Promise<void> {
-  revalidateTag('students');
-  revalidateTag('dashboard-stats');
-  revalidateTag('failing-students');
-  revalidateTag('submission-data');
-}
-
-/**
- * Revalidate assignment-related caches on the server
- */
-export async function revalidateAssignmentCaches(): Promise<void> {
-  revalidateTag('assignments');
-  revalidateTag('dashboard-stats');
-  revalidateTag('submission-data');
-}
-
-/**
- * Revalidate call log-related caches on the server
- */
-export async function revalidateCallLogCaches(): Promise<void> {
-  revalidateTag('call-logs');
-  revalidateTag('call-statistics');
-}
-
-/**
- * Revalidate follow-up-related caches on the server
- */
-export async function revalidateFollowUpCaches(): Promise<void> {
-  revalidateTag('follow-ups');
-  revalidateTag('call-queue-students');
-}
-
-/**
- * Revalidate all server-side caches
- */
-export async function revalidateAllCaches(): Promise<void> {
-  revalidateTag('students');
-  revalidateTag('assignments');
-  revalidateTag('call-logs');
-  revalidateTag('follow-ups');
-  revalidateTag('dashboard-stats');
-  revalidateTag('failing-students');
-  revalidateTag('call-queue-students');
-  revalidateTag('call-statistics');
-  revalidateTag('submission-data');
 }

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Invalidate student-related caches after bulk update
     if (result.modifiedCount > 0) {
-      invalidateStudentCache();
+      await invalidateStudentCache();
     }
 
     logger.info('POST /api/students/bulk-update', {

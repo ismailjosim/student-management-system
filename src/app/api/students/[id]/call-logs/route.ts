@@ -130,9 +130,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
 
     // Invalidate related caches
-    invalidateCallLogCache();
-    invalidateFollowUpCache();
-    invalidateStudentCache(id);
+    await invalidateCallLogCache();
+    await invalidateFollowUpCache();
+    await invalidateStudentCache(id);
 
     const response = createResponse(201, 'Call log created successfully', saved);
     return NextResponse.json(response, { status: 201 });

@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     await student.save();
 
     // Invalidate student-related caches
-    invalidateStudentCache(student._id.toString());
+    await invalidateStudentCache(student._id.toString());
 
     logger.info('POST /api/students', { studentId: student._id, email: student.email });
     const response = createResponse(201, 'Student created successfully', student);

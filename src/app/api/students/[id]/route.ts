@@ -15,7 +15,6 @@ import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
 import { invalidateStudentCache } from '@/lib/cache';
 import { NextRequest, NextResponse } from 'next/server';
-import { Assignment, Assignment } from '@/interfaces/assignment.interface';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -107,7 +106,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Invalidate student-related caches
-    invalidateStudentCache(id);
+    await invalidateStudentCache(id);
 
     logger.info('PUT /api/students/[id] - Success', { id });
     const response = createResponse(200, 'Student updated successfully', student);
@@ -153,13 +152,12 @@ export async function DELETE(
 
     // Cascade delete related documents
     await Promise.all([
-      Assignment.deleteMany({ studentId: id }),
       CallLog.deleteMany({ studentId: id }),
       FollowUp.deleteMany({ studentId: id }),
     ]);
 
     // Invalidate student-related caches
-    invalidateStudentCache(id);
+    await invalidateStudentCache(id);
 
     logger.info('DELETE /api/students/[id] - Success', { id });
     const response = createResponse(200, 'Student deleted successfully', student);
