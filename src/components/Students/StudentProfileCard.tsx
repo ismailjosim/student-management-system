@@ -1,72 +1,113 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Mail,
-  Phone,
-  MessageCircle,
-  MapPin,
+  AlertCircle,
   Briefcase,
-  GraduationCap,
-  Monitor,
-  Users,
-  Edit2,
   Check,
+  Edit2,
+  GraduationCap,
   Loader2,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Monitor,
+  Phone,
+  Users,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+
 import type { StudentWithRelations } from '@/types';
 import { getStatusBadgeClass } from '@/lib/ui-helpers';
-import { StudentAvatar } from './StudentAvatar';
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/Modal';
 import { studentApi } from '@/lib/api-client';
-import toast from 'react-hot-toast';
+
+import { StudentAvatar } from './StudentAvatar';
+import { Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/Modal';
 
 interface StudentProfileCardProps {
   student: StudentWithRelations;
   onUpdate?: () => void;
 }
 
+interface StudentFormData {
+  phone: string;
+  whatsapp: string;
+  mentorshipJoiningStatus: boolean;
+}
+
+const createInitialFormData = (student: StudentWithRelations): StudentFormData => ({
+  phone: student.phone || '',
+  whatsapp: student.whatsapp || '',
+  mentorshipJoiningStatus: student.mentorshipJoiningStatus || false,
+});
+
 export function StudentProfileCard({ student, onUpdate }: StudentProfileCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    phone: student.phone || '',
-    whatsapp: student.whatsapp || '',
-    mentorshipJoiningStatus: student.mentorshipJoiningStatus || false,
-  });
 
-  // Local state for instant UI updates
-  const [displayedData, setDisplayedData] = useState({
-    phone: student.phone || '',
-    whatsapp: student.whatsapp || '',
-    mentorshipJoiningStatus: student.mentorshipJoiningStatus || false,
-  });
+  const [displayedData, setDisplayedData] = useState<StudentFormData>(
+    createInitialFormData(student)
+  );
 
-  const rows = [
-    { icon: Phone, label: 'Phone', value: displayedData.phone },
-    { icon: MessageCircle, label: 'WhatsApp', value: displayedData.whatsapp },
-    {
-      icon: MapPin,
-      label: 'Location',
-      value: [student.town, student.district, student.division].filter(Boolean).join(', ') || null,
-    },
-    { icon: Briefcase, label: 'Occupation', value: student.occupation },
-    { icon: GraduationCap, label: 'Institute', value: student.institute },
-    { icon: Monitor, label: 'Device', value: student.workingDevice },
-    { icon: Users, label: 'Age Range', value: student.ageRange },
-  ];
+  const [formData, setFormData] = useState<StudentFormData>(createInitialFormData(student));
 
-  const handleEditClick = () => {
-    setFormData({
-      phone: student.phone || '',
-      whatsapp: student.whatsapp || '',
-      mentorshipJoiningStatus: student.mentorshipJoiningStatus || false,
-    });
+  const details = useMemo(
+    () => [
+      {
+        icon: Phone,
+        label: 'Phone',
+        value: displayedData.phone,
+      },
+      {
+        icon: MessageCircle,
+        label: 'WhatsApp',
+        value: displayedData.whatsapp,
+      },
+      {
+        icon: MapPin,
+        label: 'Location',
+        value:
+          [student.town, student.district, student.division].filter(Boolean).join(', ') || null,
+      },
+      {
+        icon: Briefcase,
+        label: 'Occupation',
+        value: student.occupation,
+      },
+      {
+        icon: GraduationCap,
+        label: 'Institute',
+        value: student.institute,
+      },
+      {
+        icon: Monitor,
+        label: 'Device',
+        value: student.workingDevice,
+      },
+      {
+        icon: Users,
+        label: 'Age Range',
+        value: student.ageRange,
+      },
+    ],
+    [displayedData.phone, displayedData.whatsapp, student]
+  );
+
+  const openEditModal = () => {
+    setFormData(createInitialFormData(student));
     setIsEditModalOpen(true);
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const closeEditModal = () => {
+    if (isLoading) return;
+
+    setIsEditModalOpen(false);
+  };
+
+  const updateFormField = <K extends keyof StudentFormData>(
+    field: K,
+    value: StudentFormData[K]
+  ) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -82,177 +123,180 @@ export function StudentProfileCard({ student, onUpdate }: StudentProfileCardProp
     try {
       setIsLoading(true);
 
-      const response = await studentApi.update(student._id, {
-        phone: formData.phone,
-        whatsapp: formData.whatsapp,
-        mentorshipJoiningStatus: formData.mentorshipJoiningStatus,
-      });
+      const response = await studentApi.update(student._id, formData);
 
       if (response?.error) {
         throw new Error(response.error);
       }
 
-      // Instant UI update with new values
-      setDisplayedData({
-        phone: formData.phone,
-        whatsapp: formData.whatsapp,
-        mentorshipJoiningStatus: formData.mentorshipJoiningStatus,
-      });
+      setDisplayedData(formData);
 
       toast.success('Student information updated successfully');
+
       setIsEditModalOpen(false);
+
       onUpdate?.();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update student';
-      toast.error(message);
-      console.error('Student update error:', err);
+    } catch (error) {
+      console.error('Student update error:', error);
+
+      toast.error(error instanceof Error ? error.message : 'Failed to update student');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-6 flex flex-col items-center text-center border-b bg-muted/20 relative">
-        <button
-          onClick={handleEditClick}
-          className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors"
-          title="Edit basic info"
-        >
-          <Edit2 className="w-5 h-5 text-muted-foreground" />
-        </button>
-        <StudentAvatar name={student.name} size="lg" className="mb-3" />
-        <h2 className="text-xl font-bold">{student.name}</h2>
-        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-          <Mail className="w-3 h-3" />
-          {student.email}
-        </p>
-        <div className="flex items-center gap-2 mt-3">
-          <span
-            className={`inline-flex px-2.5 py-1 rounded text-xs font-semibold border ${getStatusBadgeClass(student.currentStatus!)}`}
+    <>
+      <div className="overflow-hidden rounded-xl border bg-background shadow-sm">
+        {/* Header */}
+        <div className="relative flex flex-col items-center border-b bg-muted/20 px-6 py-6 text-center">
+          <button
+            onClick={openEditModal}
+            className="absolute right-4 top-4 rounded-lg p-2 transition-colors hover:bg-muted"
+            title="Edit basic info"
           >
-            {student.currentStatus}
-          </span>
-          {displayedData.mentorshipJoiningStatus ? (
-            <span className="inline-flex px-2.5 py-1 rounded text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-              In Group
+            <Edit2 className="h-5 w-5 text-muted-foreground" />
+          </button>
+
+          <StudentAvatar name={student.name} size="lg" className="mb-3" />
+
+          <h2 className="text-xl font-bold">{student.name}</h2>
+
+          <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
+            <Mail className="h-3 w-3" />
+            {student.email}
+          </p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <span
+              className={`inline-flex rounded border px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                student.currentStatus!
+              )}`}
+            >
+              {student.currentStatus}
             </span>
-          ) : (
-            <span className="inline-flex px-2.5 py-1 rounded text-xs font-semibold bg-red-50 text-red-600 border border-red-200">
-              Not in Group
+
+            <span
+              className={`inline-flex rounded border px-2.5 py-1 text-xs font-semibold ${
+                displayedData.mentorshipJoiningStatus
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-red-200 bg-red-50 text-red-600'
+              }`}
+            >
+              {displayedData.mentorshipJoiningStatus ? 'In Group' : 'Not in Group'}
             </span>
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="space-y-3 px-5 py-4">
+          {details.map(({ icon: Icon, label, value }) =>
+            value ? (
+              <div key={label} className="flex items-start gap-3 text-sm">
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+
+                <div className="flex w-full justify-between gap-2">
+                  <span className="text-muted-foreground">{label}</span>
+
+                  <span className="text-right font-medium">{value}</span>
+                </div>
+              </div>
+            ) : null
           )}
         </div>
-      </div>
 
-      {/* Details */}
-      <div className="px-5 py-4 space-y-3">
-        {rows.map(({ icon: Icon, label, value }) =>
-          value ? (
-            <div key={label} className="flex items-start gap-3 text-sm">
-              <Icon className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div className="flex justify-between w-full gap-2">
-                <span className="text-muted-foreground">{label}</span>
-                <span className="font-medium text-right">{value}</span>
-              </div>
-            </div>
-          ) : null
+        {/* Notes */}
+        {student.comments?.length > 0 && (
+          <div className="border-t bg-muted/10 px-5 py-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Notes
+            </p>
+
+            <ul className="space-y-1">
+              {student.comments.map((comment, index) => (
+                <li key={`${comment}-${index}`} className="text-sm text-muted-foreground">
+                  • {comment}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 
-      {/* Comments */}
-      {student.comments && student.comments.length > 0 && (
-        <div className="px-5 py-4 border-t bg-muted/10">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Notes
-          </p>
-          <ul className="space-y-1">
-            {student.comments.map((c, i) => (
-              <li key={i} className="text-sm text-muted-foreground">
-                • {c}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {/* Edit Modal */}
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}>
-        <ModalHeader title="Edit Basic Information" onClose={() => setIsEditModalOpen(false)} />
+      <Modal isOpen={isEditModalOpen} onClose={closeEditModal}>
+        <ModalHeader title="Edit Basic Information" onClose={closeEditModal} />
+
         <ModalBody>
           <div className="space-y-4">
             {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Phone Number</label>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium">Phone Number</label>
+
               <input
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => updateFormField('phone', e.target.value)}
                 placeholder="Enter phone number"
+                className="w-full rounded-lg border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             {/* WhatsApp */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                WhatsApp Number
-              </label>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium">WhatsApp Number</label>
+
               <input
                 type="tel"
                 value={formData.whatsapp}
-                onChange={(e) => handleInputChange('whatsapp', e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Enter WhatsApp number (optional)"
+                onChange={(e) => updateFormField('whatsapp', e.target.value)}
+                placeholder="Enter WhatsApp number"
+                className="w-full rounded-lg border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             {/* Mentorship Status */}
-            <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-3">
               <input
                 type="checkbox"
-                id="mentorshipStatus"
                 checked={formData.mentorshipJoiningStatus}
-                onChange={(e) => handleInputChange('mentorshipJoiningStatus', e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                onChange={(e) => updateFormField('mentorshipJoiningStatus', e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
               />
-              <label
-                htmlFor="mentorshipStatus"
-                className="text-sm font-medium text-foreground cursor-pointer"
-              >
-                In Mentorship Group
-              </label>
-            </div>
+
+              <span className="text-sm font-medium">In Mentorship Group</span>
+            </label>
           </div>
         </ModalBody>
+
         <ModalFooter>
           <button
-            onClick={() => setIsEditModalOpen(false)}
+            onClick={closeEditModal}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+            className="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
           >
             Cancel
           </button>
+
           <button
             onClick={handleSave}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Saving...
               </>
             ) : (
               <>
-                <Check className="w-4 h-4" />
+                <Check className="h-4 w-4" />
                 Save Changes
               </>
             )}
           </button>
         </ModalFooter>
       </Modal>
-    </div>
+    </>
   );
 }
