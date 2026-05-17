@@ -1,13 +1,13 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import { getCallStatistics } from '@/lib/follow-up-logic';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 /**
  * GET /api/call-statistics
  * Get call analytics and statistics
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     await connectDB();
 

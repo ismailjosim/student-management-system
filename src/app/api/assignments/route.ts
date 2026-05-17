@@ -9,8 +9,10 @@ import {
   isValidObjectId,
   logger,
 } from '@/lib/utils';
-import { AssignmentCreateSchema } from '@/lib/validators';
-import Assignment from '@/models/Assignment';
+import { UpdateStudentAssignmentSchema } from '@/lib/validators';
+import Student from '@/models/Student';
+import type { StudentAssignment } from '@/models/Student';
+import { Types } from 'mongoose';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -23,19 +25,12 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId');
     const assignmentNumber = searchParams.get('assignmentNumber');
     const status = searchParams.get('status');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
 
     const { skip } = getPaginationParams(page, limit);
 
-    // Build filter
-    const filter: any = {};
-
-    if (studentId) {
-      if (!isValidObjectId(studentId)) {
-        return NextResponse.json(createResponse(400, 'Invalid student ID format'), { status: 400 });
-      }
-      filter.studentId = studentId;
+    // Validate filters
+    if (studentId && !isValidObjectId(studentId)) {
+      return NextResponse.json(createResponse(400, 'Invalid student ID format'), { status: 400 });
     }
 
     if (assignmentNumber) {
@@ -46,51 +41,106 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
-      filter.assignmentNumber = num;
     }
 
     if (status) {
-      if (!['PENDING', 'SUBMITTED', 'COMPLETED', 'NOT_DEFINED'].includes(status)) {
+      if (!['PENDING', 'SUBMITTED', 'COMPLETED'].includes(status)) {
         return NextResponse.json(createResponse(400, 'Invalid status value'), { status: 400 });
       }
-      filter.status = status;
     }
 
-    if (startDate || endDate) {
-      filter.completedDate = {};
-      if (startDate) {
-        filter.completedDate.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        filter.completedDate.$lte = new Date(endDate);
-      }
+    // Build MongoDB aggregation pipeline to get assignments
+    const pipeline: any[] = [];
+
+    // Match students by ID if specified
+    if (studentId) {
+      pipeline.push({ $match: { _id: new Types.ObjectId(studentId) } });
     }
 
-    const [assignments, total] = await Promise.all([
-      Assignment.find(filter)
-        .populate('studentId', 'name email phone')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Assignment.countDocuments(filter),
-    ]);
+    // Unwind assignments to flatten them
+    pipeline.push(
+      { $unwind: { path: '$assignments', preserveNullAndEmptyArrays: false } },
+      {
+        $project: {
+          _id: 0,
+          student: {
+            _id: '$_id',
+            name: '$name',
+            email: '$email',
+            phone: '$phone',
+          },
+          assignmentNumber: '$assignments.assignmentNumber',
+          status: '$assignments.status',
+          date: '$assignments.date',
+        },
+      }
+    );
 
-    // Calculate stats for current filter
-    const stats = {
-      totalAssignments: total,
-      submittedCount: await Assignment.countDocuments({
-        ...filter,
-        status: 'SUBMITTED',
-      }),
-      completedCount: await Assignment.countDocuments({
-        ...filter,
-        status: 'COMPLETED',
-      }),
-      pendingCount: await Assignment.countDocuments({
-        ...filter,
-        status: 'PENDING',
-      }),
+    // Apply filters
+    const matchStage: any = {};
+    if (assignmentNumber) {
+      matchStage['assignmentNumber'] = parseInt(assignmentNumber);
+    }
+    if (status) {
+      matchStage['status'] = status;
+    }
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Sort and paginate
+    pipeline.push(
+      { $sort: { 'student._id': -1, assignmentNumber: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    );
+
+    const assignments = await Student.aggregate(pipeline);
+
+    // Get total count for pagination
+    const countPipeline: any[] = [...pipeline];
+    countPipeline.pop(); // Remove $limit
+    countPipeline.pop(); // Remove $skip
+    countPipeline.push({ $count: 'total' });
+
+    const countResult = await Student.aggregate(countPipeline);
+    const total = countResult[0]?.total || 0;
+
+    // Calculate stats
+    const statsPipeline: any[] = [];
+    if (studentId) {
+      statsPipeline.push({ $match: { _id: new Types.ObjectId(studentId) } });
+    }
+    statsPipeline.push({ $unwind: { path: '$assignments', preserveNullAndEmptyArrays: false } });
+
+    if (assignmentNumber) {
+      statsPipeline.push({
+        $match: { 'assignments.assignmentNumber': parseInt(assignmentNumber) },
+      });
+    }
+
+    statsPipeline.push({
+      $group: {
+        _id: null,
+        totalAssignments: { $sum: 1 },
+        pendingCount: {
+          $sum: { $cond: [{ $eq: ['$assignments.status', 'PENDING'] }, 1, 0] },
+        },
+        submittedCount: {
+          $sum: { $cond: [{ $eq: ['$assignments.status', 'SUBMITTED'] }, 1, 0] },
+        },
+        completedCount: {
+          $sum: { $cond: [{ $eq: ['$assignments.status', 'COMPLETED'] }, 1, 0] },
+        },
+      },
+    });
+
+    const statsResult = await Student.aggregate(statsPipeline);
+    const stats = statsResult[0] || {
+      totalAssignments: 0,
+      pendingCount: 0,
+      submittedCount: 0,
+      completedCount: 0,
     };
 
     const pages = Math.ceil(total / limit);
@@ -99,6 +149,7 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       filters: { studentId, assignmentNumber, status },
+      total,
     });
 
     return NextResponse.json(
@@ -124,36 +175,63 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const validatedData = AssignmentCreateSchema.parse(body);
 
-    // Check for duplicate assignment
-    const existing = await Assignment.findOne({
-      studentId: validatedData.studentId,
-      assignmentNumber: validatedData.assignmentNumber,
+    // Validate that we have studentId
+    if (!body.studentId) {
+      return NextResponse.json(createResponse(400, 'Student ID is required'), { status: 400 });
+    }
+
+    // Validate data
+    const validatedData = UpdateStudentAssignmentSchema.parse({
+      assignmentNumber: body.assignment || body.assignmentNumber,
+      status: body.status,
+      date: body.date || body.completedDate || body.submittedDate,
     });
 
+    // Check if student exists
+    const student = await Student.findById(body.studentId);
+    if (!student) {
+      return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
+    }
+
+    // Check for duplicate assignment
+    const existing = student.assignments?.some(
+      (a: any) => a.assignmentNumber === validatedData.assignmentNumber
+    );
     if (existing) {
       return NextResponse.json(
         createResponse(409, 'Assignment already exists for this student', undefined, [
           {
             field: 'assignmentNumber',
-            message: 'This student already has an assignment with this number',
+            message: `This student already has assignment ${validatedData.assignmentNumber}`,
           },
         ]),
         { status: 409 }
       );
     }
 
-    const assignment = new Assignment(validatedData);
-    await assignment.save();
-    await assignment.populate('studentId');
+    // Create new embedded assignment
+    const newAssignment: StudentAssignment = {
+      assignmentNumber: validatedData.assignmentNumber,
+      status: validatedData.status || 'PENDING',
+      date: validatedData.date,
+    };
+
+    if (!student.assignments) {
+      student.assignments = [];
+    }
+
+    student.assignments.push(newAssignment);
+    student.assignments.sort((a: any, b: any) => a.assignmentNumber - b.assignmentNumber);
+
+    await student.save();
 
     logger.info('POST /api/assignments', {
-      assignmentId: assignment._id,
-      studentId: assignment.studentId,
+      studentId: body.studentId,
+      assignmentNumber: validatedData.assignment,
     });
 
-    const response = createResponse(201, 'Assignment created successfully', assignment);
+    const response = createResponse(201, 'Assignment created successfully', newAssignment);
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {

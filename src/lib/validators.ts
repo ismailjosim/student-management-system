@@ -17,13 +17,22 @@ export type LastCompletedAssignment =
   | 'A-09'
   | 'A-10'
   | 'None';
-export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'NOT_DEFINED';
+export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type CallLogStatus =
   | 'RECEIVED'
   | 'NOT_RECEIVED'
   | 'PHONE_OFF'
   | 'SWITCHED_OFF'
   | 'FOREIGN_NUMBER';
+
+// ==================== ASSIGNMENT SCHEMAS ====================
+
+export const StudentAssignmentSchema = z.object({
+  assignment: z.number().int().min(1).max(10),
+  status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED']).default('PENDING'),
+  submittedDate: z.coerce.date().optional(),
+  completedDate: z.coerce.date().optional(),
+});
 
 // ==================== STUDENT SCHEMAS ====================
 
@@ -47,42 +56,43 @@ export const StudentCreateSchema = z.object({
     .enum(['A-01', 'A-02', 'A-03', 'A-04', 'A-05', 'A-06', 'A-07', 'A-08', 'A-09', 'A-10', 'None'])
     .optional(),
   mentorshipJoiningStatus: z.boolean().optional(),
+  assignments: z.array(StudentAssignmentSchema).optional(),
   comments: z.array(z.string()).optional(),
 });
 
 export const StudentUpdateSchema = StudentCreateSchema.partial();
 
-// ==================== ASSIGNMENT SCHEMAS ====================
+// ==================== STUDENT ASSIGNMENT UPDATE SCHEMAS ====================
 
-export const AssignmentCreateSchema = z.object({
-  assignmentNumber: z
-    .number()
-    .int('Assignment number must be an integer')
-    .min(1, 'Assignment number must be between 1 and 10')
-    .max(10, 'Assignment number must be between 1 and 10'),
-  status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED', 'NOT_DEFINED']).optional(),
-  completedDate: z.coerce.date().optional(),
-  notes: z.string().optional(),
-  studentId: z.string().min(1, 'Student ID is required'),
+export const UpdateStudentAssignmentSchema = z.object({
+  assignmentNumber: z.number().int().min(1).max(10),
+  status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED']).optional(),
+  date: z.coerce.date().optional(),
 });
 
-export const AssignmentUpdateSchema = AssignmentCreateSchema.partial().omit({ studentId: true });
-
-export const AssignmentStatusSchema = z.object({
-  status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED', 'NOT_DEFINED']),
-  completedDate: z.coerce.date().optional(),
-  notes: z.string().optional(),
-});
-
-export const AssignmentBulkSubmitSchema = z.object({
+export const BulkAssignmentSubmitSchema = z.object({
   assignmentNumber: z
     .number()
     .int()
     .min(1, 'Assignment number must be between 1 and 10')
     .max(10, 'Assignment number must be between 1 and 10'),
   emails: z.array(z.string().email('Invalid email')).min(1, 'At least one email is required'),
+  submittedDate: z.coerce.date().optional(),
+});
+
+// Legacy assignment schemas (kept for backward compatibility during migration)
+export const AssignmentCreateSchema = StudentAssignmentSchema.extend({
+  studentId: z.string().min(1, 'Student ID is required'),
+});
+
+export const AssignmentUpdateSchema = AssignmentCreateSchema.partial().omit({ studentId: true });
+
+export const AssignmentStatusSchema = z.object({
+  status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED']),
   completedDate: z.coerce.date().optional(),
 });
+
+export const AssignmentBulkSubmitSchema = BulkAssignmentSubmitSchema;
 
 // ==================== CALLLOG SCHEMAS ====================
 

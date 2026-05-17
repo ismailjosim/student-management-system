@@ -3,22 +3,38 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
 import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
 import { DashboardStats } from '@/types';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     await connectDB();
 
-    const [students, assignments, callLogs, followUps] = await Promise.all([
-      Student.find(),
-      Assignment.find(),
+    const [students, callLogs, followUps] = await Promise.all([
+      Student.find().lean(),
       CallLog.find(),
       FollowUp.find(),
     ]);
+
+    // Calculate assignment stats from embedded assignments
+    let totalAssignments = 0;
+    let pendingAssignments = 0;
+    let completedAssignments = 0;
+
+    students.forEach((student: any) => {
+      if (student.assignments && Array.isArray(student.assignments)) {
+        student.assignments.forEach((assignment: any) => {
+          totalAssignments++;
+          if (assignment.status === 'PENDING') {
+            pendingAssignments++;
+          } else if (assignment.status === 'COMPLETED') {
+            completedAssignments++;
+          }
+        });
+      }
+    });
 
     const stats: DashboardStats = {
       totalStudents: students.length,
@@ -28,9 +44,9 @@ export async function GET(request: NextRequest) {
       onTrackStudents: students.filter((s: any) => s.currentStatus === 'On Track').length,
       atRiskStudents: students.filter((s: any) => s.currentStatus === 'At Risk').length,
       completedStudents: students.filter((s: any) => s.currentStatus === 'Completed').length,
-      totalAssignments: assignments.length,
-      pendingAssignments: assignments.filter((a: any) => a.status === 'PENDING').length,
-      completedAssignments: assignments.filter((a: any) => a.status === 'COMPLETED').length,
+      totalAssignments,
+      pendingAssignments,
+      completedAssignments,
       totalCallLogs: callLogs.length,
       totalFollowUps: followUps.length,
       pendingFollowUps: followUps.filter((f: any) => new Date(f.date) > new Date()).length,

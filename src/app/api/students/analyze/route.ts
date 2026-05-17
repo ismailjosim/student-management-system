@@ -2,7 +2,6 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -31,11 +30,10 @@ export async function POST(request: NextRequest) {
     // Process each student
     for (const student of students) {
       try {
-        // Get the specific assignment for this student
-        const assignment = await Assignment.findOne({
-          studentId: student._id,
-          assignmentNumber: assignmentNumber,
-        }).lean();
+        // Get the specific assignment from embedded array
+        const assignment = student.assignments?.find(
+          (a: any) => a.assignmentNumber === assignmentNumber
+        );
 
         const isCompleted =
           assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';

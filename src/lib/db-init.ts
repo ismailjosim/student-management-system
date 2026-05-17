@@ -1,6 +1,5 @@
 import { connectDB, isConnected } from './mongodb';
 import StudentModel from '@/models/Student';
-import AssignmentModel from '@/models/Assignment';
 import CallLogModel from '@/models/CallLog';
 import FollowUpModel from '@/models/FollowUp';
 
@@ -19,15 +18,15 @@ export async function initializeDatabase(): Promise<void> {
     console.log('🔧 Initializing database...');
 
     // Initialize all models (ensures they are registered)
+    // Note: Assignment model removed - assignments are now embedded in Student documents
     const models = [
       { name: 'Student', model: StudentModel },
-      { name: 'Assignment', model: AssignmentModel },
       { name: 'CallLog', model: CallLogModel },
       { name: 'FollowUp', model: FollowUpModel },
     ];
 
     // Verify models exist
-    for (const { name, model } of models) {
+    for (const { name } of models) {
       console.log(`  ✓ Model registered: ${name}`);
     }
 
@@ -52,14 +51,6 @@ export async function createIndexes(): Promise<void> {
     await StudentModel.collection.createIndex({ email: 1, currentStatus: 1 });
     await StudentModel.collection.createIndex({ createdAt: -1 });
     console.log('  ✓ Student indexes created');
-
-    // Assignment indexes
-    await AssignmentModel.collection.createIndex(
-      { studentId: 1, assignmentNumber: 1 },
-      { unique: true }
-    );
-    await AssignmentModel.collection.createIndex({ status: 1 });
-    console.log('  ✓ Assignment indexes created');
 
     // CallLog indexes
     await CallLogModel.collection.createIndex({ studentId: 1 });
@@ -107,7 +98,6 @@ export async function dropAllCollections(): Promise<void> {
 
     const collections = [
       StudentModel.collection,
-      AssignmentModel.collection,
       CallLogModel.collection,
       FollowUpModel.collection,
     ];
@@ -135,7 +125,6 @@ export async function getCollectionStats(): Promise<Record<string, number>> {
 
     const collections = [
       { name: 'Student', model: StudentModel },
-      { name: 'Assignment', model: AssignmentModel },
       { name: 'CallLog', model: CallLogModel },
       { name: 'FollowUp', model: FollowUpModel },
     ];

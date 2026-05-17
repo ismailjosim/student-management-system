@@ -18,10 +18,9 @@ export type LastCompletedAssignment =
   | 'None';
 
 export interface StudentAssignment {
-  assignment: number; // 1-10
+  assignmentNumber: number; // 1-10
   status: AssignmentStatus; // PENDING, SUBMITTED, COMPLETED
-  submittedDate?: Date;
-  completedDate?: Date;
+  date?: Date; // Submission/Completion date
 }
 
 export interface StudentDocument {
@@ -152,7 +151,7 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
     ],
     assignments: [
       {
-        assignment: {
+        assignmentNumber: {
           type: Number,
           min: 1,
           max: 10,
@@ -163,8 +162,7 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
           enum: ['PENDING', 'SUBMITTED', 'COMPLETED'],
           default: 'PENDING',
         },
-        submittedDate: Date,
-        completedDate: Date,
+        date: Date,
       },
     ],
     followUps: [

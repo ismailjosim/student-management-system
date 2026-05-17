@@ -1,7 +1,6 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, isValidObjectId, logger } from '@/lib/utils';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,10 +19,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
-    // Get all assignments for the student
-    const assignments = await Assignment.find({ studentId: id })
-      .sort({ assignmentNumber: 1 })
-      .lean();
+    // Get assignments from embedded array
+    const assignments = student.assignments || [];
 
     // Calculate statistics
     const submitted = assignments.filter((a) => a.status === 'SUBMITTED').length;
@@ -38,15 +35,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Find next assignment to complete
     const nextAssignment = assignments.find((a) => a.status !== 'COMPLETED');
     const nextAssignmentDue = nextAssignment
-      ? `A-${String(nextAssignment.assignmentNumber).padStart(2, '0')}`
+      ? `A-${String(nextAssignment.assignment).padStart(2, '0')}`
       : null;
 
     // Build assignment list with details
     const assignmentsList = assignments.map((a) => ({
-      number: a.assignmentNumber,
+      number: a.assignment,
       status: a.status,
       completedDate: a.completedDate ? new Date(a.completedDate).toISOString().split('T')[0] : null,
-      notes: a.notes || null,
+      submittedDate: a.submittedDate ? new Date(a.submittedDate).toISOString().split('T')[0] : null,
     }));
 
     const progressData = {

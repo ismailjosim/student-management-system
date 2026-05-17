@@ -4,7 +4,6 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, logger } from '@/lib/utils';
 import { AssignmentBulkSubmitSchema } from '@/lib/validators';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -14,8 +13,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = AssignmentBulkSubmitSchema.parse(body);
 
-    const { assignmentNumber, emails, completedDate } = validatedData;
-    const submissionDate = completedDate || new Date();
+    const { assignmentNumber, emails, submittedDate } = validatedData;
+    const submissionDate = submittedDate || new Date();
 
     // Normalize emails to lowercase
     const normalizedEmails = emails.map((email) => email.toLowerCase().trim());
@@ -23,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Find all matching students
     const students = await Student.find({
       email: { $in: normalizedEmails },
-    }).lean();
+    });
 
     const studentMap = new Map(students.map((s: any) => [s.email.toLowerCase(), s]));
     const matchedEmails = new Set<string>();
@@ -52,28 +51,31 @@ export async function POST(request: NextRequest) {
         id: student._id.toString(),
       });
 
-      // Check if assignment already exists
-      const existingAssignment = await Assignment.findOne({
-        studentId: student._id,
-        assignmentNumber,
-      });
+      // Initialize assignments array if needed
+      if (!student.assignments) {
+        student.assignments = [];
+      }
 
-      if (existingAssignment) {
-        // Update existing assignment
-        await Assignment.findByIdAndUpdate(existingAssignment._id, {
-          status: 'SUBMITTED',
-          completedDate: submissionDate,
-        });
-        updatedCount++;
-      } else {
-        // Create new assignment
-        const newAssignment = new Assignment({
+      // Check if assignment already exists in embedded array
+      const existingIndex = student.assignments.findIndex(
+        (a: any) => a.assignmentNumber === assignmentNumber
+      );
+
+      if (existingIndex >= 0) {
+        // Update existing embedded assignment
+        student.assignments[existingIndex] = {
           assignmentNumber,
           status: 'SUBMITTED',
-          completedDate: submissionDate,
-          studentId: student._id,
+          date: submissionDate,
+        };
+        updatedCount++;
+      } else {
+        // Add new embedded assignment
+        student.assignments.push({
+          assignmentNumber,
+          status: 'SUBMITTED',
+          date: submissionDate,
         });
-        await newAssignment.save();
         createdCount++;
       }
 
@@ -82,10 +84,11 @@ export async function POST(request: NextRequest) {
       const currentLast = student.lastCompletedAssignment || 'None';
 
       if (currentLast === 'None' || parseInt(currentLast.split('-')[1]) < assignmentNumber) {
-        await Student.findByIdAndUpdate(student._id, {
-          lastCompletedAssignment: assignmentKey,
-        });
+        student.lastCompletedAssignment = assignmentKey;
       }
+
+      // Save the updated student document
+      await student.save();
     }
 
     logger.info('POST /api/assignments/bulk-submit', {

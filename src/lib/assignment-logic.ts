@@ -1,15 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Assignment } from '@/interfaces/assignment.interface';
 import Student from '@/models/Student';
 import { StudentStatus } from '@/models/Student';
-import { updateStudentAssignments } from './assignment-formatter';
 
 /**
  * Get the current active assignment number based on today's date
  * Assuming assignments are released one per week, starting from a baseline date
  */
 export function getCurrentActiveAssignment(): number {
-  const baselineDate = new Date('2024-01-01'); // When assignment 1 was released
+  const baselineDate = new Date('2024-01-01');
   const today = new Date();
   const weeksElapsed = Math.floor(
     (today.getTime() - baselineDate.getTime()) / (1000 * 60 * 60 * 24 * 7)
@@ -26,24 +24,18 @@ export async function detectFailingStudent(studentId: string): Promise<boolean> 
     const student = await Student.findById(studentId).lean();
     if (!student || !student.assignments) return false;
 
-    // Sort by assignment number
     const assignments = student.assignments.sort((a: any, b: any) => a.assignment - b.assignment);
-
     if (assignments.length < 2) return false;
 
     let consecutiveMissed = 0;
-
     for (const assignment of assignments) {
       if (assignment.status === 'PENDING') {
         consecutiveMissed++;
-        if (consecutiveMissed >= 2) {
-          return true;
-        }
+        if (consecutiveMissed >= 2) return true;
       } else {
         consecutiveMissed = 0;
       }
     }
-
     return false;
   } catch (error) {
     console.error('Error detecting failing student:', error);
@@ -58,7 +50,6 @@ export async function getAssignmentsBehind(studentId: string): Promise<number> {
   try {
     const currentActive = getCurrentActiveAssignment();
     const student = await Student.findById(studentId).lean();
-
     if (!student) return 0;
 
     const lastCompleted = student.lastCompletedAssignment;
@@ -74,25 +65,20 @@ export async function getAssignmentsBehind(studentId: string): Promise<number> {
 
 /**
  * Estimate when student will complete all assignments
- * Assumes one assignment per week
  */
 export async function estimateCompletionDate(studentId: string): Promise<Date | null> {
   try {
     const behind = await getAssignmentsBehind(studentId);
     if (behind <= 0) {
-      // Check if all assignments are completed
       const student = await Student.findById(studentId).lean();
-      const completed = student?.assignments?.filter((a: any) => a.status === 'COMPLETED').length || 0;
-
-      if (completed >= 10) {
-        return new Date(); // Already completed
-      }
+      const completed =
+        student?.assignments?.filter((a: any) => a.status === 'COMPLETED').length || 0;
+      if (completed >= 10) return new Date();
     }
 
-    const estimatedWeeks = Math.ceil((10 - behind) * 1.2); // 1.2 factor for safety
+    const estimatedWeeks = Math.ceil((10 - behind) * 1.2);
     const estimatedDate = new Date();
     estimatedDate.setDate(estimatedDate.getDate() + estimatedWeeks * 7);
-
     return estimatedDate;
   } catch (error) {
     console.error('Error estimating completion date:', error);
@@ -102,42 +88,37 @@ export async function estimateCompletionDate(studentId: string): Promise<Date | 
 
 /**
  * Update student status based on assignment progress
- * Logic:
- * - If all assignments completed → COMPLETED
- * - If 2+ missed consecutive → AT RISK
- * - If behind by 2+ → BEHIND
- * - Otherwise → ON TRACK
  */
 export async function updateStudentStatus(studentId: string): Promise<StudentStatus> {
   try {
-    const [assignments, isFailing, behind] = await Promise.all([
-      Assignment.find({ studentId }).lean(),
-      detectFailingStudent(studentId),
-      getAssignmentsBehind(studentId),
-    ]);
+    const student = await Student.findById(studentId);
+    if (!student) return 'On Track';
 
+    const assignments = student.assignments || [];
     const completedCount = assignments.filter((a) => a.status === 'COMPLETED').length;
 
-    // All assignments completed
     if (completedCount >= 10) {
-      await Student.findByIdAndUpdate(studentId, { currentStatus: 'Completed' });
+      student.currentStatus = 'Completed';
+      await student.save();
       return 'Completed';
     }
 
-    // Failing student (2+ consecutive missed)
+    const isFailing = await detectFailingStudent(studentId);
     if (isFailing) {
-      await Student.findByIdAndUpdate(studentId, { currentStatus: 'At Risk' });
+      student.currentStatus = 'At Risk';
+      await student.save();
       return 'At Risk';
     }
 
-    // Behind by 2+ assignments
+    const behind = await getAssignmentsBehind(studentId);
     if (behind >= 2) {
-      await Student.findByIdAndUpdate(studentId, { currentStatus: 'Behind' });
+      student.currentStatus = 'Behind';
+      await student.save();
       return 'Behind';
     }
 
-    // On track
-    await Student.findByIdAndUpdate(studentId, { currentStatus: 'On Track' });
+    student.currentStatus = 'On Track';
+    await student.save();
     return 'On Track';
   } catch (error) {
     console.error('Error updating student status:', error);
@@ -146,44 +127,47 @@ export async function updateStudentStatus(studentId: string): Promise<StudentSta
 }
 
 /**
- * Process assignment submission and cascade updates
- * Updates:
- * 1. Assignment status to SUBMITTED
- * 2. Student lastCompletedAssignment if applicable
- * 3. Student currentStatus based on progress
+ * Submit an assignment (status: PENDING → SUBMITTED)
  */
-export async function submitAssignment(assignmentId: string, completedDate?: Date): Promise<any> {
+export async function submitAssignment(
+  studentId: string,
+  assignmentNumber: number,
+  submittedDate?: Date
+): Promise<any> {
   try {
-    const assignment = await Assignment.findByIdAndUpdate(
-      assignmentId,
-      {
+    const student = await Student.findById(studentId);
+    if (!student) return null;
+
+    if (!student.assignments) student.assignments = [];
+
+    const assignmentIndex = student.assignments.findIndex((a) => a.assignment === assignmentNumber);
+    if (assignmentIndex < 0) {
+      student.assignments.push({
+        assignment: assignmentNumber,
         status: 'SUBMITTED',
-        completedDate: completedDate || new Date(),
-      },
-      { new: true }
-    );
-
-    if (!assignment) return null;
-
-    // Update student's lastCompletedAssignment if this is higher
-    const student = await Student.findById(assignment.studentId);
-    if (student) {
-      const assignmentKey = `A-${String(assignment.assignmentNumber).padStart(2, '0')}`;
-      const currentLast = student.lastCompletedAssignment || 'None';
-
-      if (
-        currentLast === 'None' ||
-        parseInt(currentLast.split('-')[1]) < assignment.assignmentNumber
-      ) {
-        student.lastCompletedAssignment = assignmentKey;
-        await student.save();
-      }
-
-      // Update student status
-      await updateStudentStatus(assignment.studentId.toString());
+        submittedDate: submittedDate || new Date(),
+      });
+      student.assignments.sort((a, b) => a.assignment - b.assignment);
+    } else {
+      student.assignments[assignmentIndex] = {
+        ...student.assignments[assignmentIndex],
+        status: 'SUBMITTED',
+        submittedDate: submittedDate || new Date(),
+      };
     }
 
-    return assignment;
+    const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
+    const currentLast = student.lastCompletedAssignment || 'None';
+    if (currentLast === 'None' || parseInt(currentLast.split('-')[1]) < assignmentNumber) {
+      student.lastCompletedAssignment = assignmentKey;
+    }
+
+    await student.save();
+    await updateStudentStatus(studentId);
+
+    return (
+      student.assignments[assignmentIndex] || student.assignments[student.assignments.length - 1]
+    );
   } catch (error) {
     console.error('Error submitting assignment:', error);
     throw error;
@@ -191,43 +175,47 @@ export async function submitAssignment(assignmentId: string, completedDate?: Dat
 }
 
 /**
- * Process assignment completion and cascade updates
+ * Complete an assignment (status: → COMPLETED)
  */
-export async function completeAssignment(assignmentId: string, completedDate?: Date): Promise<any> {
+export async function completeAssignment(
+  studentId: string,
+  assignmentNumber: number,
+  completedDate?: Date
+): Promise<any> {
   try {
-    const assignment = await Assignment.findByIdAndUpdate(
-      assignmentId,
-      {
+    const student = await Student.findById(studentId);
+    if (!student) return null;
+
+    if (!student.assignments) student.assignments = [];
+
+    const assignmentIndex = student.assignments.findIndex((a) => a.assignment === assignmentNumber);
+    if (assignmentIndex < 0) {
+      student.assignments.push({
+        assignment: assignmentNumber,
         status: 'COMPLETED',
         completedDate: completedDate || new Date(),
-      },
-      { new: true }
-    );
-
-    if (!assignment) return null;
-
-    // Update student's lastCompletedAssignment
-    const student = await Student.findById(assignment.studentId);
-    if (student) {
-      const assignmentKey = `A-${String(assignment.assignmentNumber).padStart(2, '0')}`;
-      const currentLast = student.lastCompletedAssignment || 'None';
-
-      if (
-        currentLast === 'None' ||
-        parseInt(currentLast.split('-')[1]) < assignment.assignmentNumber
-      ) {
-        student.lastCompletedAssignment = assignmentKey;
-        await student.save();
-      }
-
-      // Update student's assignments array with new format ['A-05','A-06'...]
-      await updateStudentAssignments(assignment.studentId.toString());
-
-      // Update student status
-      await updateStudentStatus(assignment.studentId.toString());
+      });
+      student.assignments.sort((a, b) => a.assignment - b.assignment);
+    } else {
+      student.assignments[assignmentIndex] = {
+        ...student.assignments[assignmentIndex],
+        status: 'COMPLETED',
+        completedDate: completedDate || new Date(),
+      };
     }
 
-    return assignment;
+    const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
+    const currentLast = student.lastCompletedAssignment || 'None';
+    if (currentLast === 'None' || parseInt(currentLast.split('-')[1]) < assignmentNumber) {
+      student.lastCompletedAssignment = assignmentKey;
+    }
+
+    await student.save();
+    await updateStudentStatus(studentId);
+
+    return (
+      student.assignments[assignmentIndex] || student.assignments[student.assignments.length - 1]
+    );
   } catch (error) {
     console.error('Error completing assignment:', error);
     throw error;
@@ -236,16 +224,13 @@ export async function completeAssignment(assignmentId: string, completedDate?: D
 
 /**
  * Validate assignment state progression
- * Can't go from PENDING directly to COMPLETED (must go through SUBMITTED)
  */
 export function validateStatusProgression(currentStatus: string, newStatus: string): boolean {
   const validProgression: Record<string, string[]> = {
-    NOT_DEFINED: ['PENDING', 'SUBMITTED', 'COMPLETED'],
     PENDING: ['SUBMITTED', 'COMPLETED'],
     SUBMITTED: ['COMPLETED', 'PENDING'],
-    COMPLETED: ['SUBMITTED'], // Allow resetting if needed
+    COMPLETED: ['SUBMITTED'],
   };
-
   return validProgression[currentStatus]?.includes(newStatus) ?? false;
 }
 
@@ -257,45 +242,73 @@ export async function calculateAssignmentStats(): Promise<any> {
     const assignmentStats: any[] = [];
 
     for (let i = 1; i <= 10; i++) {
-      const total = await Assignment.countDocuments({ assignmentNumber: i });
-      const submitted = await Assignment.countDocuments({
-        assignmentNumber: i,
-        status: 'SUBMITTED',
-      });
-      const completed = await Assignment.countDocuments({
-        assignmentNumber: i,
-        status: 'COMPLETED',
-      });
-      const pending = total - submitted;
+      const stats = await Student.aggregate([
+        { $unwind: '$assignments' },
+        { $match: { 'assignments.assignment': i } },
+        {
+          $group: {
+            _id: null,
+            totalStudents: { $sum: 1 },
+            submitted: {
+              $sum: { $cond: [{ $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] }, 1, 0] },
+            },
+            completed: {
+              $sum: { $cond: [{ $eq: ['$assignments.status', 'COMPLETED'] }, 1, 0] },
+            },
+          },
+        },
+      ]);
 
-      const submissionRate = total > 0 ? (((submitted + completed) / total) * 100).toFixed(2) : '0';
+      const statData = stats[0] || { totalStudents: 0, submitted: 0, completed: 0 };
+      const pending = statData.totalStudents - statData.submitted;
+      const submissionRate =
+        statData.totalStudents > 0
+          ? (((statData.submitted + statData.completed) / statData.totalStudents) * 100).toFixed(2)
+          : '0';
 
       assignmentStats.push({
         assignmentNumber: i,
-        totalStudents: total,
-        submitted,
-        completed,
+        totalStudents: statData.totalStudents,
+        submitted: statData.submitted,
+        completed: statData.completed,
         pending,
         submissionRate: `${submissionRate}%`,
       });
     }
 
-    // Calculate overall progress
-    const totalAssignments = await Assignment.countDocuments();
-    const completedAssignments = await Assignment.countDocuments({ status: 'COMPLETED' });
-    const submittedAssignments = await Assignment.countDocuments({
-      status: { $in: ['SUBMITTED', 'COMPLETED'] },
-    });
+    const overallStats = await Student.aggregate([
+      { $unwind: { path: '$assignments', preserveNullAndEmptyArrays: false } },
+      {
+        $group: {
+          _id: null,
+          totalAssignments: { $sum: 1 },
+          completedAssignments: {
+            $sum: { $cond: [{ $eq: ['$assignments.status', 'COMPLETED'] }, 1, 0] },
+          },
+          submittedAssignments: {
+            $sum: { $cond: [{ $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const overall = overallStats[0] || {
+      totalAssignments: 0,
+      completedAssignments: 0,
+      submittedAssignments: 0,
+    };
 
     const averageProgress =
-      totalAssignments > 0 ? ((submittedAssignments / totalAssignments) * 100).toFixed(2) : '0';
+      overall.totalAssignments > 0
+        ? ((overall.submittedAssignments / overall.totalAssignments) * 100).toFixed(2)
+        : '0';
 
     return {
       assignmentStats,
       averageProgress: `${averageProgress}%`,
-      totalAssignmentsCompleted: completedAssignments,
-      totalSubmitted: submittedAssignments,
-      totalPending: totalAssignments - submittedAssignments,
+      totalAssignmentsCompleted: overall.completedAssignments,
+      totalSubmitted: overall.submittedAssignments,
+      totalPending: overall.totalAssignments - overall.submittedAssignments,
     };
   } catch (error) {
     console.error('Error calculating assignment stats:', error);
@@ -304,37 +317,55 @@ export async function calculateAssignmentStats(): Promise<any> {
 }
 
 /**
- * Get submission timeline data (grouped by date)
+ * Get submission timeline data
  */
 export async function getSubmissionTimeline(startDate?: Date, endDate?: Date): Promise<any> {
   try {
-    const query: any = { status: { $in: ['SUBMITTED', 'COMPLETED'] } };
+    const pipeline: any[] = [
+      { $unwind: { path: '$assignments', preserveNullAndEmptyArrays: false } },
+      {
+        $match: {
+          'assignments.status': { $in: ['SUBMITTED', 'COMPLETED'] },
+        },
+      },
+    ];
 
     if (startDate || endDate) {
-      query.completedDate = {};
-      if (startDate) query.completedDate.$gte = startDate;
-      if (endDate) query.completedDate.$lte = endDate;
+      const dateMatch: any = {};
+      if (startDate) dateMatch.$gte = startDate;
+      if (endDate) dateMatch.$lte = endDate;
+      pipeline.push({
+        $match: {
+          'assignments.submittedDate': dateMatch,
+        },
+      });
     }
 
-    const assignments = await Assignment.find(query).sort({ completedDate: -1 }).lean();
+    pipeline.push({
+      $group: {
+        _id: {
+          $dateToString: {
+            format: '%Y-%m-%d',
+            date: {
+              $ifNull: ['$assignments.submittedDate', '$assignments.completedDate'],
+            },
+          },
+        },
+        count: { $sum: 1 },
+      },
+    });
 
-    // Group by date
-    const timeline: Record<string, number> = {};
+    pipeline.push({ $sort: { _id: -1 } });
 
-    for (const assignment of assignments) {
-      const dateKey = assignment.completedDate
-        ? new Date(assignment.completedDate).toISOString().split('T')[0]
-        : 'No Date';
-
-      timeline[dateKey] = (timeline[dateKey] || 0) + 1;
-    }
+    const timeline = await Student.aggregate(pipeline);
+    const totalSubmissions = timeline.reduce((sum: number, item: any) => sum + item.count, 0);
 
     return {
-      timeline: Object.entries(timeline).map(([date, count]) => ({
-        date,
-        submissions: count,
+      timeline: timeline.map((item: any) => ({
+        date: item._id || 'No Date',
+        submissions: item.count,
       })),
-      totalSubmissions: assignments.length,
+      totalSubmissions,
     };
   } catch (error) {
     console.error('Error getting submission timeline:', error);

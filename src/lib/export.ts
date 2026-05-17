@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as XLSX from 'xlsx';
 import type { StudentWithRelations } from '@/types';
-import { Student } from '@/interfaces/student.interface';
 
 /**
  * Export data to Excel file
  */
-export function exportToExcel(data: Record<string, any>[], filename: string): Blob {
+export function exportToExcel(data: Record<string, unknown>[]): Blob {
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
@@ -21,7 +20,7 @@ export function exportToExcel(data: Record<string, any>[], filename: string): Bl
 /**
  * Export data to CSV file
  */
-export function exportToCSV(data: Record<string, any>[], filename: string): Blob {
+export function exportToCSV(data: Record<string, unknown>[]): Blob {
   if (data.length === 0) {
     return new Blob([''], { type: 'text/csv;charset=utf-8;' });
   }

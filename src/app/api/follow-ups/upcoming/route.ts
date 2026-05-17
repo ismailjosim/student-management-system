@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { updateOverdueStatus } from '@/lib/follow-up-logic';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, getPaginationParams } from '@/lib/utils';
-import { getUpcomingFollowUps, updateOverdueStatus } from '@/lib/follow-up-logic';
 import FollowUp from '@/models/FollowUp';
 import { NextRequest, NextResponse } from 'next/server';
 

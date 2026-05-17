@@ -2,11 +2,10 @@
 
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError } from '@/lib/utils';
-import { FollowUpCompleteSchema } from '@/lib/validators';
-import { completeFollowUp } from '@/lib/follow-up-logic';
 import FollowUp from '@/models/FollowUp';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
+import { FollowUpCompleteSchema } from '@/lib/validators';
 
 /**
  * PUT /api/follow-ups/[id]/complete

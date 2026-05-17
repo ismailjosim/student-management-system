@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Search, RefreshCw, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';

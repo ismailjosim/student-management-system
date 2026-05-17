@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { connectDB } from '@/lib/mongodb';
-import { createResponse, handleDbError, handleZodError, getPaginationParams } from '@/lib/utils';
-import { FollowUpCreateSchema } from '@/lib/validators';
+import { createResponse, handleDbError, getPaginationParams } from '@/lib/utils';
 import FollowUp from '@/models/FollowUp';
 import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';

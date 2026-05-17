@@ -140,7 +140,7 @@ export default function DashboardPage() {
     // Auto-refresh every 60 seconds
     const interval = setInterval(fetchDashboardData, 60000);
     return () => clearInterval(interval);
-  }, [failingPage, callQueuePage]);
+  }, [failingPage, callQueuePage, refreshing]);
 
   const filteredFailingStudents =
     statusFilter === 'all'
@@ -177,7 +177,9 @@ export default function DashboardPage() {
 
       setLastUpdated(new Date());
       toast.success('Dashboard refreshed');
-    } catch (err) {
+    } catch (
+      _err // eslint-disable-line @typescript-eslint/no-unused-vars
+    ) {
       toast.error('Failed to refresh dashboard');
     } finally {
       setRefreshing(false);
@@ -201,7 +203,9 @@ export default function DashboardPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       toast.success('Call list exported successfully');
-    } catch (err) {
+    } catch (
+      _err // eslint-disable-line @typescript-eslint/no-unused-vars
+    ) {
       toast.error('Failed to export call list');
     }
   };

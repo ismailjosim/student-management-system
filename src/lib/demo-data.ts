@@ -1,4 +1,3 @@
-import type { Student } from '@/interfaces/student.interface';
 import type { Assignment } from '@/interfaces/assignment.interface';
 import type { CallLog } from '@/interfaces/callLog.interface';
 import type { FollowUp } from '@/interfaces/followUp.interface';

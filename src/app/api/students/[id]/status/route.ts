@@ -8,6 +8,7 @@ import {
   logger,
 } from '@/lib/utils';
 import Student from '@/models/Student';
+import { invalidateStudentCache } from '@/lib/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -41,6 +42,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       logger.info('PUT /api/students/[id]/status - Student not found', { id });
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
+
+    // Invalidate student-related caches
+    invalidateStudentCache(id);
 
     logger.info('PUT /api/students/[id]/status - Success', { id, status });
 

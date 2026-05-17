@@ -98,18 +98,16 @@ export const studentApi = {
   delete: (id: string) => apiClient.delete(`/api/students/${id}`),
 };
 
-// Assignment endpoints
+// Assignment endpoints (now embedded in student)
 export const assignmentApi = {
   getAll: () => apiClient.get('/api/assignments'),
-  getById: (id: string) => apiClient.get(`/api/assignments/${id}`),
-  create: (data: Record<string, unknown>) => apiClient.post('/api/assignments', data),
-  update: (id: string, data: Record<string, unknown>) =>
-    apiClient.put(`/api/assignments/${id}`, data),
-  delete: (id: string) => apiClient.delete(`/api/assignments/${id}`),
-  submit: (id: string, completedDate?: Date) =>
-    apiClient.put(`/api/assignments/${id}/submit`, { completedDate }),
-  complete: (id: string, completedDate?: Date) =>
-    apiClient.put(`/api/assignments/${id}/complete`, { completedDate }),
+  getByStudentId: (studentId: string) => apiClient.get(`/api/students/${studentId}/assignments`),
+  create: (studentId: string, data: Record<string, unknown>) =>
+    apiClient.post(`/api/students/${studentId}/assignments`, data),
+  update: (studentId: string, data: Record<string, unknown>) =>
+    apiClient.put(`/api/students/${studentId}/assignments`, data),
+  delete: (studentId: string, assignmentNumber: number) =>
+    apiClient.delete(`/api/students/${studentId}/assignments?assignmentNumber=${assignmentNumber}`),
 };
 
 // CallLog endpoints

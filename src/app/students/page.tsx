@@ -451,7 +451,9 @@ export default function StudentsPage() {
                     } else {
                       toast.error('Failed to save assignment');
                     }
-                  } catch (error) {
+                  } catch (
+                    _error // eslint-disable-line @typescript-eslint/no-unused-vars
+                  ) {
                     toast.error('Failed to save assignment');
                   }
                 }}

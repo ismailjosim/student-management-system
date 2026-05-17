@@ -1,9 +1,9 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import { calculateAssignmentStats } from '@/lib/assignment-logic';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     await connectDB();
 

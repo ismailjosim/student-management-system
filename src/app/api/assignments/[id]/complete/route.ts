@@ -1,59 +1,91 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, isValidObjectId, logger } from '@/lib/utils';
-import { completeAssignment } from '@/lib/assignment-logic';
-import Assignment from '@/models/Assignment';
+import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
-    const { id } = await params;
+    const { id: studentId } = await params;
 
     // Validate ObjectId format
-    if (!isValidObjectId(id)) {
-      return NextResponse.json(createResponse(400, 'Invalid assignment ID format'), {
+    if (!isValidObjectId(studentId)) {
+      return NextResponse.json(createResponse(400, 'Invalid student ID format'), {
         status: 400,
       });
     }
 
     const body = await request.json();
-    const { completedDate } = body;
+    const { assignmentNumber, date } = body;
+
+    // Validate assignment number
+    if (!assignmentNumber || assignmentNumber < 1 || assignmentNumber > 10) {
+      return NextResponse.json(createResponse(400, 'Assignment number must be between 1 and 10'), {
+        status: 400,
+      });
+    }
 
     // Validate date if provided
-    if (completedDate) {
-      const date = new Date(completedDate);
-      if (isNaN(date.getTime())) {
+    if (date) {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
         return NextResponse.json(createResponse(400, 'Invalid date format'), { status: 400 });
       }
-      if (date > new Date()) {
+      if (dateObj > new Date()) {
         return NextResponse.json(createResponse(400, 'Date cannot be in the future'), {
           status: 400,
         });
       }
     }
 
-    const assignment = await completeAssignment(
-      id,
-      completedDate ? new Date(completedDate) : undefined
-    );
-
-    if (!assignment) {
-      return NextResponse.json(createResponse(404, 'Assignment not found'), { status: 404 });
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
-    // Fetch the assignment again to populate student info
-    const populatedAssignment = await Assignment.findById(id).populate(
-      'studentId',
-      'name email phone'
+    // Initialize assignments array if needed
+    if (!student.assignments) {
+      student.assignments = [];
+    }
+
+    // Find or create the embedded assignment
+    const assignmentIndex = student.assignments.findIndex(
+      (a) => a.assignmentNumber === assignmentNumber
     );
 
-    logger.info('PUT /api/assignments/[id]/complete', { assignmentId: id });
+    if (assignmentIndex >= 0) {
+      // Update existing embedded assignment
+      student.assignments[assignmentIndex] = {
+        assignmentNumber,
+        status: 'COMPLETED',
+        date: date ? new Date(date) : new Date(),
+      };
+    } else {
+      // Add new embedded assignment
+      student.assignments.push({
+        assignmentNumber,
+        status: 'COMPLETED',
+        date: date ? new Date(date) : new Date(),
+      });
+    }
 
-    const response = createResponse(
-      200,
-      'Assignment marked as completed successfully',
-      populatedAssignment
-    );
+    // Update lastCompletedAssignment if needed
+    const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
+    const currentLast = student.lastCompletedAssignment || 'None';
+    if (currentLast === 'None' || parseInt(currentLast.split('-')[1]) < assignmentNumber) {
+      student.lastCompletedAssignment = assignmentKey;
+    }
+
+    await student.save();
+
+    logger.info('PUT /api/assignments/[id]/complete', { studentId, assignmentNumber });
+
+    const response = createResponse(200, 'Assignment marked as completed successfully', {
+      studentId,
+      assignmentNumber,
+      assignment:
+        student.assignments[assignmentIndex] || student.assignments[student.assignments.length - 1],
+    });
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
     logger.error('PUT /api/assignments/[id]/complete failed', error);

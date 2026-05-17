@@ -10,8 +10,8 @@ import {
 } from '@/lib/utils';
 import { StudentCreateSchema } from '@/lib/validators';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
 import CallLog from '@/models/CallLog';
+import { invalidateStudentCache } from '@/lib/cache';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     // Enrich students with assignment count and last call date
     const enrichedStudents = await Promise.all(
       students.map(async (student: any) => {
-        const assignmentCount = await Assignment.countDocuments({ studentId: student._id });
+        const assignmentCount = student.assignments?.length || 0;
         const lastCall = await CallLog.findOne({ studentId: student._id })
           .sort({ date: -1 })
           .lean();
@@ -107,6 +107,9 @@ export async function POST(request: NextRequest) {
 
     const student = new Student(validatedData);
     await student.save();
+
+    // Invalidate student-related caches
+    invalidateStudentCache(student._id.toString());
 
     logger.info('POST /api/students', { studentId: student._id, email: student.email });
     const response = createResponse(201, 'Student created successfully', student);

@@ -2,10 +2,9 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     await connectDB();
 
@@ -18,12 +17,12 @@ export async function POST(request: NextRequest) {
     // Process each student
     for (const student of students) {
       try {
-        // Get all assignments for this student
-        const assignments = await Assignment.find({ studentId: student._id }).lean();
+        // Get all assignments from embedded array
+        const assignments = student.assignments || [];
 
         // Count incomplete assignments
         const incompleteCount = assignments.filter(
-          (a) => a.status !== 'COMPLETED' && a.status !== 'SUBMITTED'
+          (a: any) => a.status !== 'COMPLETED' && a.status !== 'SUBMITTED'
         ).length;
 
         let newStatus = student.currentStatus || 'On Track';
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
             const currentAssignmentNum = lastCompletedNum + 1;
 
             const currentAssignment = assignments.find(
-              (a) => a.assignmentNumber === currentAssignmentNum
+              (a: any) => a.assignmentNumber === currentAssignmentNum
             );
 
             if (

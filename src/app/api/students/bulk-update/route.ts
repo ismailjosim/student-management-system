@@ -2,6 +2,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import { invalidateStudentCache } from '@/lib/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
       { _id: { $in: studentIds } },
       { currentStatus: status }
     );
+
+    // Invalidate student-related caches after bulk update
+    if (result.modifiedCount > 0) {
+      invalidateStudentCache();
+    }
 
     logger.info('POST /api/students/bulk-update', {
       count: result.modifiedCount,

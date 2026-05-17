@@ -12,7 +12,6 @@ import {
   Monitor,
   Users,
   Edit2,
-  X,
   Check,
   Loader2,
 } from 'lucide-react';

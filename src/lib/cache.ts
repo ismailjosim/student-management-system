@@ -1,34 +1,42 @@
 /**
- * Simple caching utility for dashboard data with time-based expiration
+ * Next.js v16 Server-Side Caching with force-cache and revalidation
+ * Uses Next.js fetch caching instead of localStorage
  */
 
+import { revalidateTag } from 'next/cache';
+
+/**
+ * In-memory cache for client-side usage (mirrors server cache)
+ * This is used by client components that need cached data
+ */
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
-  expiresIn: number; // milliseconds
+  revalidateIn: number; // seconds
 }
 
-class LocalStorageCache {
+class ServerSideCache {
   private prefix = 'sms_cache_';
+  private memoryCache = new Map<string, CacheEntry<any>>();
 
   /**
-   * Get cached data if it exists and hasn't expired
+   * Get cached data (from in-memory store for client components)
    */
   get<T>(key: string): T | null {
     try {
-      const item = localStorage.getItem(`${this.prefix}${key}`);
-      if (!item) return null;
+      const entry = this.memoryCache.get(`${this.prefix}${key}`);
+      if (!entry) return null;
 
-      const entry: CacheEntry<T> = JSON.parse(item);
       const now = Date.now();
+      const ageSeconds = (now - entry.timestamp) / 1000;
 
       // Check if cache has expired
-      if (now - entry.timestamp > entry.expiresIn) {
+      if (ageSeconds > entry.revalidateIn) {
         this.remove(key);
         return null;
       }
 
-      return entry.data;
+      return entry.data as T;
     } catch (error) {
       console.error('Cache retrieval error:', error);
       return null;
@@ -36,19 +44,19 @@ class LocalStorageCache {
   }
 
   /**
-   * Store data in cache with expiration time
+   * Store data in memory cache (for client-side)
    * @param key Cache key
    * @param data Data to cache
-   * @param expiresIn Expiration time in milliseconds (default: 5 minutes)
+   * @param revalidateIn Revalidation time in seconds (default: 300s/5min)
    */
-  set<T>(key: string, data: T, expiresIn: number = 5 * 60 * 1000): void {
+  set<T>(key: string, data: T, revalidateIn: number = 300): void {
     try {
       const entry: CacheEntry<T> = {
         data,
         timestamp: Date.now(),
-        expiresIn,
+        revalidateIn,
       };
-      localStorage.setItem(`${this.prefix}${key}`, JSON.stringify(entry));
+      this.memoryCache.set(`${this.prefix}${key}`, entry);
     } catch (error) {
       console.error('Cache storage error:', error);
     }
@@ -59,7 +67,7 @@ class LocalStorageCache {
    */
   remove(key: string): void {
     try {
-      localStorage.removeItem(`${this.prefix}${key}`);
+      this.memoryCache.delete(`${this.prefix}${key}`);
     } catch (error) {
       console.error('Cache removal error:', error);
     }
@@ -70,12 +78,7 @@ class LocalStorageCache {
    */
   clear(): void {
     try {
-      const keys = Object.keys(localStorage);
-      keys.forEach((key) => {
-        if (key.startsWith(this.prefix)) {
-          localStorage.removeItem(key);
-        }
-      });
+      this.memoryCache.clear();
     } catch (error) {
       console.error('Cache clear error:', error);
     }
@@ -100,13 +103,12 @@ class LocalStorageCache {
    */
   clearByPattern(pattern: string): void {
     try {
-      const keys = Object.keys(localStorage);
       const regex = new RegExp(`${this.prefix}${pattern}`);
-      keys.forEach((key) => {
+      for (const key of this.memoryCache.keys()) {
         if (regex.test(key)) {
-          localStorage.removeItem(key);
+          this.memoryCache.delete(key);
         }
-      });
+      }
     } catch (error) {
       console.error('Cache pattern clear error:', error);
     }
@@ -117,19 +119,17 @@ class LocalStorageCache {
    */
   getStats(): { totalEntries: number; sizes: Record<string, number> } {
     try {
-      const keys = Object.keys(localStorage);
-      const cacheKeys = keys.filter((key) => key.startsWith(this.prefix));
       const sizes: Record<string, number> = {};
+      let totalSize = 0;
 
-      cacheKeys.forEach((key) => {
-        const item = localStorage.getItem(key);
-        if (item) {
-          sizes[key.replace(this.prefix, '')] = item.length;
-        }
-      });
+      for (const [key, entry] of this.memoryCache.entries()) {
+        const size = JSON.stringify(entry.data).length;
+        sizes[key.replace(this.prefix, '')] = size;
+        totalSize += size;
+      }
 
       return {
-        totalEntries: cacheKeys.length,
+        totalEntries: this.memoryCache.size,
         sizes,
       };
     } catch (error) {
@@ -139,7 +139,7 @@ class LocalStorageCache {
   }
 }
 
-export const cache = new LocalStorageCache();
+export const cache = new ServerSideCache();
 
 /**
  * Cache keys used throughout the app
@@ -172,13 +172,15 @@ export const CACHE_KEYS = {
 } as const;
 
 /**
- * Cache expiration times
+ * Cache expiration times (in seconds)
+ * Server-side fetch caching uses force-cache (indefinite until revalidation)
+ * These durations are for client-side in-memory cache fallback
  */
 export const CACHE_EXPIRY = {
-  SHORT: 2 * 60 * 1000, // 2 minutes
-  MEDIUM: 5 * 60 * 1000, // 5 minutes
-  LONG: 15 * 60 * 1000, // 15 minutes
-  VERY_LONG: 30 * 60 * 1000, // 30 minutes
+  SHORT: 2 * 60, // 2 minutes
+  MEDIUM: 5 * 60, // 5 minutes (default)
+  LONG: 15 * 60, // 15 minutes
+  VERY_LONG: 30 * 60, // 30 minutes
 } as const;
 
 /**
@@ -253,4 +255,59 @@ export function invalidateFollowUpCache(): void {
  */
 export function clearAllCaches(): void {
   cache.clear();
+}
+
+/**
+ * Server-side cache revalidation functions using Next.js revalidateTag
+ * Use these in Server Actions to invalidate fetch caches
+ */
+
+/**
+ * Revalidate student-related caches on the server
+ */
+export async function revalidateStudentCaches(): Promise<void> {
+  revalidateTag('students');
+  revalidateTag('dashboard-stats');
+  revalidateTag('failing-students');
+  revalidateTag('submission-data');
+}
+
+/**
+ * Revalidate assignment-related caches on the server
+ */
+export async function revalidateAssignmentCaches(): Promise<void> {
+  revalidateTag('assignments');
+  revalidateTag('dashboard-stats');
+  revalidateTag('submission-data');
+}
+
+/**
+ * Revalidate call log-related caches on the server
+ */
+export async function revalidateCallLogCaches(): Promise<void> {
+  revalidateTag('call-logs');
+  revalidateTag('call-statistics');
+}
+
+/**
+ * Revalidate follow-up-related caches on the server
+ */
+export async function revalidateFollowUpCaches(): Promise<void> {
+  revalidateTag('follow-ups');
+  revalidateTag('call-queue-students');
+}
+
+/**
+ * Revalidate all server-side caches
+ */
+export async function revalidateAllCaches(): Promise<void> {
+  revalidateTag('students');
+  revalidateTag('assignments');
+  revalidateTag('call-logs');
+  revalidateTag('follow-ups');
+  revalidateTag('dashboard-stats');
+  revalidateTag('failing-students');
+  revalidateTag('call-queue-students');
+  revalidateTag('call-statistics');
+  revalidateTag('submission-data');
 }

@@ -1,27 +1,14 @@
+// Assignment types - now embedded within Student documents
+
 export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'NOT_DEFINED';
 
+// Embedded assignment within student document
 export interface Assignment {
-  _id?: string;
   assignmentNumber: number; // 1-10
-  status: AssignmentStatus;
-  completedDate?: Date;
+  status: AssignmentStatus; // PENDING, SUBMITTED, COMPLETED, NOT_DEFINED
+  date?: Date; // Submission/Completion date
   notes?: string;
-  studentId: string;
-  createdAt?: Date;
-  updatedAt?: Date;
 }
 
-export interface AssignmentCreateInput {
-  assignmentNumber: number;
-  status?: AssignmentStatus;
-  completedDate?: Date;
-  notes?: string;
-  studentId: string;
-}
-
-export interface AssignmentUpdateInput {
-  assignmentNumber?: number;
-  status?: AssignmentStatus;
-  completedDate?: Date;
-  notes?: string;
-}
+// Alias for consistency
+export type StudentAssignment = Assignment;

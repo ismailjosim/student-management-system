@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import Assignment from '@/models/Assignment';
+
 import Student from '@/models/Student';
+import type { StudentAssignment } from '@/models/Student';
+import { isValidObjectId } from './utils';
 
 /**
  * Format assignment number to assignment ID (e.g., 5 -> 'A-05')
@@ -17,41 +19,11 @@ export function parseAssignmentId(assignmentId: string): number {
 }
 
 /**
- * Update student's assignments array from Assignment collection
- * Stores only completed assignments in the format ['A-05','A-06'...]
+ * Get embedded assignments for a student
  */
-export async function updateStudentAssignments(studentId: string): Promise<string[]> {
+export async function getStudentAssignments(studentId: string): Promise<StudentAssignment[]> {
   try {
-    // Get all completed assignments for this student
-    const assignments = await Assignment.find({
-      studentId,
-      status: 'COMPLETED',
-    })
-      .sort({ assignmentNumber: 1 })
-      .lean();
-
-    // Format as ['A-05','A-06'...] array
-    const assignmentIds = assignments.map((a: any) =>
-      formatAssignmentId(a.assignmentNumber)
-    );
-
-    // Update student record
-    await Student.findByIdAndUpdate(studentId, {
-      assignments: assignmentIds,
-    });
-
-    return assignmentIds;
-  } catch (error) {
-    console.error('Error updating student assignments:', error);
-    return [];
-  }
-}
-
-/**
- * Get formatted assignments for a student
- */
-export async function getStudentAssignments(studentId: string): Promise<string[]> {
-  try {
+    if (!isValidObjectId(studentId)) return [];
     const student = await Student.findById(studentId).lean();
     return student?.assignments || [];
   } catch (error) {
@@ -61,91 +33,164 @@ export async function getStudentAssignments(studentId: string): Promise<string[]
 }
 
 /**
- * Add assignment to student's array (only if COMPLETED)
+ * Update or create an assignment in the student's embedded assignments array
+ */
+export async function upsertStudentAssignment(
+  studentId: string,
+  assignmentNumber: number,
+  status: string,
+  completedDate?: Date,
+  submittedDate?: Date
+): Promise<StudentAssignment | null> {
+  try {
+    if (!isValidObjectId(studentId)) return null;
+
+    const student = await Student.findById(studentId);
+    if (!student) return null;
+
+    // Initialize assignments array if it doesn't exist
+    if (!student.assignments) {
+      student.assignments = [];
+    }
+
+    // Find existing assignment
+    const existingIndex = student.assignments.findIndex(
+      (a: any) => a.assignment === assignmentNumber
+    );
+
+    const assignmentData: StudentAssignment = {
+      assignment: assignmentNumber,
+      status: status as 'PENDING' | 'SUBMITTED' | 'COMPLETED',
+      completedDate,
+      submittedDate,
+    };
+
+    if (existingIndex >= 0) {
+      // Update existing
+      student.assignments[existingIndex] = {
+        ...student.assignments[existingIndex],
+        ...assignmentData,
+      };
+    } else {
+      // Add new
+      student.assignments.push(assignmentData);
+      // Sort by assignment number
+      student.assignments.sort((a: any, b: any) => a.assignment - b.assignment);
+    }
+
+    await student.save();
+
+    return assignmentData;
+  } catch (error) {
+    console.error('Error upserting student assignment:', error);
+    return null;
+  }
+}
+
+/**
+ * Remove an assignment from student's embedded array
+ */
+export async function removeStudentAssignment(
+  studentId: string,
+  assignmentNumber: number
+): Promise<boolean> {
+  try {
+    if (!isValidObjectId(studentId)) return false;
+
+    const result = await Student.findByIdAndUpdate(
+      studentId,
+      {
+        $pull: { assignments: { assignment: assignmentNumber } },
+      },
+      { new: true }
+    );
+
+    return !!result;
+  } catch (error) {
+    console.error('Error removing student assignment:', error);
+    return false;
+  }
+}
+
+/**
+ * Get assignment count statistics
+ */
+export async function getAssignmentStats(studentId: string) {
+  try {
+    if (!isValidObjectId(studentId)) return null;
+
+    const student = await Student.findById(studentId).lean();
+    if (!student?.assignments) {
+      return {
+        total: 0,
+        pending: 0,
+        submitted: 0,
+        completed: 0,
+      };
+    }
+
+    const assignments = student.assignments;
+    return {
+      total: assignments.length,
+      pending: assignments.filter((a: any) => a.status === 'PENDING').length,
+      submitted: assignments.filter((a: any) => a.status === 'SUBMITTED').length,
+      completed: assignments.filter((a: any) => a.status === 'COMPLETED').length,
+    };
+  } catch (error) {
+    console.error('Error getting assignment stats:', error);
+    return null;
+  }
+}
+
+/**
+ * Get the last completed assignment number
+ */
+export async function getLastCompletedAssignmentNumber(studentId: string): Promise<number | null> {
+  try {
+    if (!isValidObjectId(studentId)) return null;
+
+    const student = await Student.findById(studentId).lean();
+    if (!student?.assignments) return null;
+
+    const completed = student.assignments
+      .filter((a: any) => a.status === 'COMPLETED')
+      .sort((a: any, b: any) => b.assignment - a.assignment);
+
+    return completed.length > 0 ? completed[0].assignment : null;
+  } catch (error) {
+    console.error('Error getting last completed assignment:', error);
+    return null;
+  }
+}
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use upsertStudentAssignment instead
  */
 export async function addAssignmentToStudent(
   studentId: string,
   assignmentNumber: number,
   status: string
 ): Promise<void> {
-  try {
-    if (status !== 'COMPLETED') return;
-
-    const assignmentId = formatAssignmentId(assignmentNumber);
-    const student = await Student.findById(studentId).lean();
-    const currentAssignments = student?.assignments || [];
-
-    // Avoid duplicates
-    if (!currentAssignments.includes(assignmentId)) {
-      currentAssignments.push(assignmentId);
-      // Sort by assignment number
-      currentAssignments.sort(
-        (a, b) => parseAssignmentId(a) - parseAssignmentId(b)
-      );
-
-      await Student.findByIdAndUpdate(studentId, {
-        assignments: currentAssignments,
-      });
-    }
-  } catch (error) {
-    console.error('Error adding assignment to student:', error);
-  }
+  await upsertStudentAssignment(studentId, assignmentNumber, status);
 }
 
 /**
- * Remove assignment from student's array
+ * Legacy function for backward compatibility
+ * @deprecated Use removeStudentAssignment instead
  */
 export async function removeAssignmentFromStudent(
   studentId: string,
   assignmentNumber: number
 ): Promise<void> {
-  try {
-    const assignmentId = formatAssignmentId(assignmentNumber);
-    const student = await Student.findById(studentId).lean();
-    const currentAssignments = student?.assignments || [];
-
-    const updated = currentAssignments.filter((a) => a !== assignmentId);
-
-    await Student.findByIdAndUpdate(studentId, {
-      assignments: updated,
-    });
-  } catch (error) {
-    console.error('Error removing assignment from student:', error);
-  }
+  await removeStudentAssignment(studentId, assignmentNumber);
 }
 
 /**
- * Sync all students' assignment arrays from Assignment collection
- * Useful for bulk updates or data migration
+ * Legacy function for backward compatibility
+ * @deprecated This function no longer syncs from separate Assignment collection
  */
 export async function syncAllStudentAssignments(): Promise<number> {
-  try {
-    const students = await Student.find().lean();
-    let updated = 0;
-
-    for (const student of students) {
-      const assignments = await Assignment.find({
-        studentId: student._id,
-        status: 'COMPLETED',
-      })
-        .sort({ assignmentNumber: 1 })
-        .lean();
-
-      const assignmentIds = assignments.map((a: any) =>
-        formatAssignmentId(a.assignmentNumber)
-      );
-
-      if (JSON.stringify(assignmentIds) !== JSON.stringify(student.assignments)) {
-        await Student.findByIdAndUpdate(student._id, {
-          assignments: assignmentIds,
-        });
-        updated++;
-      }
-    }
-
-    return updated;
-  } catch (error) {
-    console.error('Error syncing student assignments:', error);
-    return 0;
-  }
+  console.warn('syncAllStudentAssignments is deprecated - assignments are now embedded in Student');
+  return 0;
 }

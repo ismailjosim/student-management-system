@@ -1,7 +1,6 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -31,25 +30,35 @@ export async function GET() {
       currentStatus: 'Completed',
     });
 
-    // Get total and completed assignments for progress
-    const totalAssignments = await Assignment.countDocuments();
-    const completedAssignments = await Student.aggregate([
+    // Get total and completed assignments from embedded arrays
+    // Total possible assignments is students * 10 (10 assignments per student)
+    const assignmentStats = await Student.aggregate([
       {
         $group: {
           _id: null,
+          totalAssignmentsCreated: {
+            $sum: { $size: { $ifNull: ['$assignments', []] } },
+          },
           totalCompleted: {
             $sum: {
-              $cond: [{ $gt: ['$lastCompletedAssignment', 0] }, 1, 0],
+              $size: {
+                $filter: {
+                  input: { $ifNull: ['$assignments', []] },
+                  as: 'assignment',
+                  cond: { $eq: ['$$assignment.status', 'COMPLETED'] },
+                },
+              },
             },
           },
         },
       },
     ]);
 
-    const totalCompletedCount = completedAssignments[0]?.totalCompleted || 0;
+    const totalAssignmentsCreated = assignmentStats[0]?.totalAssignmentsCreated || 0;
+    const totalCompletedCount = assignmentStats[0]?.totalCompleted || 0;
     const averageProgress =
-      totalAssignments > 0
-        ? Math.round((totalCompletedCount / (totalStudents * totalAssignments)) * 100)
+      totalAssignmentsCreated > 0
+        ? Math.round((totalCompletedCount / totalAssignmentsCreated) * 100)
         : 0;
 
     return NextResponse.json(
@@ -60,7 +69,7 @@ export async function GET() {
         onTrackStudents,
         completedStudents,
         averageProgress,
-        totalAssignments,
+        totalAssignments: totalAssignmentsCreated,
         completedAssignments: totalCompletedCount,
       })
     );

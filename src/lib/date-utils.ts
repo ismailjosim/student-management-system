@@ -20,7 +20,7 @@ export function getCurrentActiveAssignment(): number {
 /**
  * Format a date to a readable string
  */
-export function formatDate(date: Date | string, format: string = 'MMM dd, yyyy'): string {
+export function formatDate(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',

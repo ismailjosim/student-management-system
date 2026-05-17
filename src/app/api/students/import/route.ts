@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import Student from '@/models/Student';
-import { processStudentImportFile, validateStudentData } from '@/lib/file-parser';
+import { processStudentImportFile } from '@/lib/file-parser';
 import { connectDB } from '@/lib/mongodb';
+import { invalidateStudentCache } from '@/lib/cache';
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,6 +60,11 @@ export async function POST(request: NextRequest) {
         runValidators: true,
       });
       updated++;
+    }
+
+    // Invalidate student-related caches after bulk import/update
+    if (created.length > 0 || updated > 0) {
+      invalidateStudentCache();
     }
 
     return NextResponse.json({

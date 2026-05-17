@@ -26,14 +26,10 @@ export async function POST(request: NextRequest) {
 
     logger.info('Assignments format sync completed', { updatedStudents: updatedCount });
 
-    const response = createResponse(
-      200,
-      'Assignments format migration completed successfully',
-      {
-        updatedStudents: updatedCount,
-        message: `Updated ${updatedCount} student records with new assignment array format`,
-      }
-    );
+    const response = createResponse(200, 'Assignments format migration completed successfully', {
+      updatedStudents: updatedCount,
+      message: `Updated ${updatedCount} student records with new assignment array format`,
+    });
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
     logger.error('Assignments format sync failed', error);
