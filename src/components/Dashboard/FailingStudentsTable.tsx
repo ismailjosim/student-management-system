@@ -11,6 +11,7 @@ interface FailingStudentsTableProps {
   totalPages?: number;
   totalCount?: number;
   onPageChange?: (page: number) => void;
+  loading?: boolean;
 }
 
 export function FailingStudentsTable({
@@ -19,6 +20,7 @@ export function FailingStudentsTable({
   totalPages = 1,
   totalCount = 0,
   onPageChange,
+  loading = false,
 }: FailingStudentsTableProps) {
   return (
     <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
@@ -51,7 +53,30 @@ export function FailingStudentsTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {students.length === 0 ? (
+            {loading ? (
+              Array.from({ length: 10 }).map((_, idx) => (
+                <tr key={`skeleton-${idx}`} className="hover:bg-muted/20 transition-colors">
+                  <td className="px-6 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+                      <div className="space-y-1 flex-1">
+                        <div className="h-4 bg-muted rounded w-24 animate-pulse" />
+                        <div className="h-3 bg-muted rounded w-32 animate-pulse" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 bg-muted rounded w-12 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-6 bg-muted rounded w-16 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    <div className="h-4 bg-muted rounded w-20 ml-auto animate-pulse" />
+                  </td>
+                </tr>
+              ))
+            ) : students.length === 0 ? (
               <tr>
                 <td
                   colSpan={4}
@@ -96,7 +121,7 @@ export function FailingStudentsTable({
           </tbody>
         </table>
       </div>
-      {onPageChange && totalPages > 1 && (
+      {onPageChange && (
         <div className="px-6 py-4 border-t flex items-center justify-between bg-muted/20">
           <span className="text-xs text-muted-foreground">
             Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>

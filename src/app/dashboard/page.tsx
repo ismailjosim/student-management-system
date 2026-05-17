@@ -19,6 +19,8 @@ export default function DashboardPage() {
   const [failingStudents, setFailingStudents] = useState<StudentWithRelations[]>([]);
   const [callQueueStudents, setCallQueueStudents] = useState<StudentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failingLoading, setFailingLoading] = useState(true);
+  const [callQueueLoading, setCallQueueLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -84,6 +86,7 @@ export default function DashboardPage() {
         }
 
         // Fetch failing students (at risk) - don't cache pagination results
+        setFailingLoading(true);
         const failingResponse = await dashboardApi.getFailingStudents(failingPage, 10);
         if (failingResponse.error) {
           throw new Error(failingResponse.error);
@@ -95,11 +98,13 @@ export default function DashboardPage() {
           'data' in failingResponse.data
         ) {
           setFailingStudents((failingResponse.data as any).data || []);
-          setFailingTotalPages((failingResponse.data as any).pages || 1);
+          setFailingTotalPages((failingResponse.data as any).totalPages || 1);
           setFailingTotalCount((failingResponse.data as any).total || 0);
         }
+        setFailingLoading(false);
 
         // Fetch call queue (students needing calls - At Risk and Behind)
+        setCallQueueLoading(true);
         const callQueueResponse = await dashboardApi.getFailingStudents(callQueuePage, 10);
         if (callQueueResponse.error) {
           throw new Error(callQueueResponse.error);
@@ -111,9 +116,10 @@ export default function DashboardPage() {
           'data' in callQueueResponse.data
         ) {
           setCallQueueStudents((callQueueResponse.data as any).data || []);
-          setCallQueueTotalPages((callQueueResponse.data as any).pages || 1);
+          setCallQueueTotalPages((callQueueResponse.data as any).totalPages || 1);
           setCallQueueTotalCount((callQueueResponse.data as any).total || 0);
         }
+        setCallQueueLoading(false);
 
         setLastUpdated(new Date());
         setError(null);
@@ -148,20 +154,27 @@ export default function DashboardPage() {
       if (statsResponse.data) {
         setStats(statsResponse.data as DashboardStatsType);
       }
+
+      setFailingLoading(true);
       const failingResponse = await dashboardApi.getFailingStudents(failingPage, 10);
       if (failingResponse.data) {
         const failingData = (failingResponse.data as any).data || [];
         setFailingStudents(failingData);
-        setFailingTotalPages((failingResponse.data as any).pages || 1);
+        setFailingTotalPages((failingResponse.data as any).totalPages || 1);
         setFailingTotalCount((failingResponse.data as any).total || 0);
       }
+      setFailingLoading(false);
+
+      setCallQueueLoading(true);
       const callQueueResponse = await dashboardApi.getFailingStudents(callQueuePage, 10);
       if (callQueueResponse.data) {
         const queueData = (callQueueResponse.data as any).data || [];
         setCallQueueStudents(queueData);
-        setCallQueueTotalPages((callQueueResponse.data as any).pages || 1);
+        setCallQueueTotalPages((callQueueResponse.data as any).totalPages || 1);
         setCallQueueTotalCount((callQueueResponse.data as any).total || 0);
       }
+      setCallQueueLoading(false);
+
       setLastUpdated(new Date());
       toast.success('Dashboard refreshed');
     } catch (err) {
@@ -194,13 +207,38 @@ export default function DashboardPage() {
   };
 
   if (loading) {
+    // Still loading initial data, but show page structure with stats
     return (
-      <div className="space-y-6 animate-pulse">
-        <div>
-          <div className="h-8 w-48 bg-muted rounded mb-2" />
-          <div className="h-4 w-96 bg-muted rounded" />
+      <div className="space-y-8 animate-in fade-in duration-300 ">
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Cohort Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Overview of student progress and engagement.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={handleExportCallList}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Export Call List
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+
+        {/* Stats Grid Skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-pulse">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="bg-background rounded-xl border p-4 space-y-3">
               <div className="h-9 w-9 bg-muted rounded-lg" />
@@ -293,6 +331,7 @@ export default function DashboardPage() {
               totalPages={failingTotalPages}
               totalCount={failingTotalCount}
               onPageChange={setFailingPage}
+              loading={failingLoading}
             />
           </div>
         </div>
@@ -304,6 +343,7 @@ export default function DashboardPage() {
             totalPages={callQueueTotalPages}
             totalCount={callQueueTotalCount}
             onPageChange={setCallQueuePage}
+            loading={callQueueLoading}
           />
         </div>
       </div>

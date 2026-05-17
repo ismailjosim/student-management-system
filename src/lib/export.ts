@@ -88,22 +88,21 @@ export function generateStudentReport(students: StudentWithRelations[]): Record<
  */
 export function generateProgressReport(students: StudentWithRelations[]): Record<string, any>[] {
   return students.map((student) => {
-    const assignments = student.assignments || [];
-    const completed =
-      (assignments as any[]).filter((a: any) => a?.status === 'COMPLETED').length || 0;
-    const submitted =
-      (assignments as any[]).filter((a: any) => a?.status === 'SUBMITTED').length || 0;
-    const total = assignments.length || 10;
+    const assignments = student.assignments || []; // Now in format ['A-05','A-06'...]
+    const completed = assignments.length;
+    const total = 10;
 
     return {
       name: student.name,
       email: student.email,
-      completedAssignments: completed,
-      submittedAssignments: submitted,
-      totalAssignments: total,
-      completionPercentage: Math.round((completed / total) * 100),
-      currentStatus: student.currentStatus || 'On Track',
-      lastUpdate: new Date().toLocaleDateString(),
+      phone: student.phone || '',
+      status: student.currentStatus || 'On Track',
+      lastCompletedAssignment: student.lastCompletedAssignment || 'None',
+      completedAssignments: assignments.join(', '),
+      completionRate: `${Math.round((completed / total) * 100)}%`,
+      completedCount: completed,
+      totalCount: total,
+      createdAt: student.createdAt ? new Date(student.createdAt).toLocaleDateString() : '',
     };
   });
 }

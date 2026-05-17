@@ -12,6 +12,7 @@ interface CallQueueProps {
   totalPages?: number;
   totalCount?: number;
   onPageChange?: (page: number) => void;
+  loading?: boolean;
 }
 
 export function CallQueue({
@@ -21,6 +22,7 @@ export function CallQueue({
   totalPages = 1,
   totalCount = 0,
   onPageChange,
+  loading = false,
 }: CallQueueProps) {
   const getPriorityIcon = (status: string) => {
     switch (status) {
@@ -56,7 +58,24 @@ export function CallQueue({
       </div>
 
       <div className="flex-1 overflow-y-auto divide-y divide-border">
-        {students.length === 0 ? (
+        {loading ? (
+          Array.from({ length: 10 }).map((_, idx) => (
+            <div
+              key={`skeleton-${idx}`}
+              className="px-5 py-4 flex items-center justify-between border-l-4 border-l-transparent"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-muted animate-pulse shrink-0" />
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="h-4 bg-muted rounded w-24 animate-pulse" />
+                  <div className="h-3 bg-muted rounded w-32 animate-pulse" />
+                  <div className="h-3 bg-muted rounded w-28 animate-pulse" />
+                </div>
+              </div>
+              <div className="ml-2 w-4 h-4 bg-muted rounded animate-pulse shrink-0" />
+            </div>
+          ))
+        ) : students.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-muted-foreground italic">
             Queue is empty! 🎉
           </div>
@@ -105,7 +124,7 @@ export function CallQueue({
       </div>
 
       <div className="px-5 py-4 border-t space-y-2">
-        {onPageChange && totalPages > 1 && (
+        {onPageChange && (
           <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b">
             <span className="text-xs text-muted-foreground">
               Page <strong>{currentPage}</strong>/{totalPages}

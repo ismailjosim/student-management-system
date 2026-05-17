@@ -4,6 +4,7 @@
 export type AgeRange = '16-17' | '18-19' | '20-25' | '26-30' | '31-40' | '41-50' | '50+';
 export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
 export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
+export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type LastCompletedAssignment =
   | 'A-01'
   | 'A-02'
@@ -16,7 +17,6 @@ export type LastCompletedAssignment =
   | 'A-09'
   | 'A-10'
   | 'None';
-export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'NOT_DEFINED';
 export type CallLogStatus =
   | 'RECEIVED'
   | 'NOT_RECEIVED'
@@ -24,6 +24,13 @@ export type CallLogStatus =
   | 'SWITCHED_OFF'
   | 'FOREIGN_NUMBER';
 export type Priority = 'low' | 'medium' | 'high';
+
+export interface StudentAssignment {
+  assignment: number;
+  status: AssignmentStatus;
+  submittedDate?: Date;
+  completedDate?: Date;
+}
 
 // ==================== API RESPONSE TYPES ====================
 
@@ -83,7 +90,7 @@ export interface StudentWithRelations {
   lastCompletedAssignment?: LastCompletedAssignment;
   mentorshipJoiningStatus?: boolean;
   callLogs?: any[];
-  assignments?: any[];
+  assignments?: StudentAssignment[];
   followUps?: any[];
   comments?: string[];
   lastContactedAt?: Date;

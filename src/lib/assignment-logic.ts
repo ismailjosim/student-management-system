@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Assignment } from '@/interfaces/assignment.interface';
 import Student from '@/models/Student';
-import Assignment from '@/models/Assignment';
 import { StudentStatus } from '@/models/Student';
+import { updateStudentAssignments } from './assignment-formatter';
 
 /**
  * Get the current active assignment number based on today's date
@@ -22,7 +23,11 @@ export function getCurrentActiveAssignment(): number {
  */
 export async function detectFailingStudent(studentId: string): Promise<boolean> {
   try {
-    const assignments = await Assignment.find({ studentId }).sort({ assignmentNumber: 1 }).lean();
+    const student = await Student.findById(studentId).lean();
+    if (!student || !student.assignments) return false;
+
+    // Sort by assignment number
+    const assignments = student.assignments.sort((a: any, b: any) => a.assignment - b.assignment);
 
     if (assignments.length < 2) return false;
 
@@ -76,10 +81,8 @@ export async function estimateCompletionDate(studentId: string): Promise<Date | 
     const behind = await getAssignmentsBehind(studentId);
     if (behind <= 0) {
       // Check if all assignments are completed
-      const completed = await Assignment.countDocuments({
-        studentId,
-        status: 'COMPLETED',
-      });
+      const student = await Student.findById(studentId).lean();
+      const completed = student?.assignments?.filter((a: any) => a.status === 'COMPLETED').length || 0;
 
       if (completed >= 10) {
         return new Date(); // Already completed
@@ -216,6 +219,9 @@ export async function completeAssignment(assignmentId: string, completedDate?: D
         student.lastCompletedAssignment = assignmentKey;
         await student.save();
       }
+
+      // Update student's assignments array with new format ['A-05','A-06'...]
+      await updateStudentAssignments(assignment.studentId.toString());
 
       // Update student status
       await updateStudentStatus(assignment.studentId.toString());

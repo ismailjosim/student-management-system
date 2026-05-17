@@ -20,6 +20,7 @@
 - Call Log & Outreach & Follow-Up Schedule side by side
 - Follow up call generates automatically after add last call log
 - Student Tracking data mismatch FIXED (now shows correct % vs active assignment)
+- assignment collection data array format: ['A-05','A-06'...]
 
 📋 TODO/IN PROGRESS:
 - assignment collection data array format: ['A-05','A-06'...]

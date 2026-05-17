@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export type AgeRange = '16-17' | '18-19' | '20-25' | '26-30' | '31-40' | '41-50' | '50+';
 export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
 export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
+export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type LastCompletedAssignment =
   | 'A-01'
   | 'A-02'
@@ -15,6 +16,13 @@ export type LastCompletedAssignment =
   | 'A-09'
   | 'A-10'
   | 'None';
+
+export interface StudentAssignment {
+  assignment: number; // 1-10
+  status: AssignmentStatus; // PENDING, SUBMITTED, COMPLETED
+  submittedDate?: Date;
+  completedDate?: Date;
+}
 
 export interface StudentDocument {
   _id?: string;
@@ -47,7 +55,7 @@ export interface StudentDocument {
 
   // Relations
   callLogs?: string[];
-  assignments?: string[];
+  assignments?: StudentAssignment[];
   followUps?: string[];
 
   // Metadata
@@ -144,8 +152,19 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
     ],
     assignments: [
       {
-        type: Schema.Types.ObjectId,
-        ref: 'Assignment',
+        assignment: {
+          type: Number,
+          min: 1,
+          max: 10,
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ['PENDING', 'SUBMITTED', 'COMPLETED'],
+          default: 'PENDING',
+        },
+        submittedDate: Date,
+        completedDate: Date,
       },
     ],
     followUps: [
