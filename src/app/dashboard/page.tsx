@@ -8,6 +8,7 @@ import { CallQueue } from '@/components/Dashboard/CallQueue';
 import { SubmissionDistribution } from '@/components/Dashboard/SubmissionDistribution';
 import { AssignmentCompletionStats } from '@/components/Dashboard/AssignmentCompletionStats';
 import { dashboardApi, studentApi } from '@/lib/api-client';
+import { cache, CACHE_KEYS, CACHE_EXPIRY } from '@/lib/cache';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import type { DashboardStats as DashboardStatsType, StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
@@ -22,35 +23,68 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [failingPage, setFailingPage] = useState(1);
+  const [callQueuePage, setCallQueuePage] = useState(1);
+  const [failingTotalPages, setFailingTotalPages] = useState(1);
+  const [callQueueTotalPages, setCallQueueTotalPages] = useState(1);
+  const [failingTotalCount, setFailingTotalCount] = useState(0);
+  const [callQueueTotalCount, setCallQueueTotalCount] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setError(null);
-        setRefreshing(true);
+        if (!refreshing) setLoading(true);
 
-        // Fetch stats
-        const statsResponse = await dashboardApi.getStats();
-        if (statsResponse.error) {
-          throw new Error(statsResponse.error);
+        // Try to get cached stats first
+        let statsData: DashboardStatsType | null = null;
+        const cachedStats = cache.get<DashboardStatsType>(CACHE_KEYS.DASHBOARD_STATS);
+
+        if (cachedStats) {
+          statsData = cachedStats;
+        } else {
+          // Fetch stats from API
+          const statsResponse = await dashboardApi.getStats();
+          if (statsResponse.error) {
+            throw new Error(statsResponse.error);
+          }
+
+          if (statsResponse.data) {
+            statsData = statsResponse.data as DashboardStatsType;
+            // Cache the stats
+            cache.set(CACHE_KEYS.DASHBOARD_STATS, statsData, CACHE_EXPIRY.MEDIUM);
+          }
         }
 
-        if (statsResponse.data) {
-          setStats(statsResponse.data as DashboardStatsType);
+        if (statsData) {
+          setStats(statsData);
         }
 
-        // Fetch all students for submission distribution
-        const allStudentsResponse = await studentApi.getAllPaginated(1, 1000);
-        if (allStudentsResponse.data) {
-          // Handle both array response and object with data property
-          const studentData = Array.isArray(allStudentsResponse.data)
-            ? allStudentsResponse.data
-            : (allStudentsResponse.data as any).data || [];
+        // Try to get cached all students
+        let studentData: StudentWithRelations[] = [];
+        const cachedAllStudents = cache.get<StudentWithRelations[]>(CACHE_KEYS.ALL_STUDENTS);
+
+        if (cachedAllStudents) {
+          studentData = cachedAllStudents;
+        } else {
+          // Fetch all students for submission distribution
+          const allStudentsResponse = await studentApi.getAllPaginated(1, 1000);
+          if (allStudentsResponse.data) {
+            const data = Array.isArray(allStudentsResponse.data)
+              ? allStudentsResponse.data
+              : (allStudentsResponse.data as any).data || [];
+            studentData = data;
+            // Cache the students
+            cache.set(CACHE_KEYS.ALL_STUDENTS, studentData, CACHE_EXPIRY.LONG);
+          }
+        }
+
+        if (studentData.length > 0) {
           setAllStudents(studentData);
         }
 
-        // Fetch failing students (at risk)
-        const failingResponse = await dashboardApi.getFailingStudents(1, 100);
+        // Fetch failing students (at risk) - don't cache pagination results
+        const failingResponse = await dashboardApi.getFailingStudents(failingPage, 10);
         if (failingResponse.error) {
           throw new Error(failingResponse.error);
         }
@@ -61,10 +95,12 @@ export default function DashboardPage() {
           'data' in failingResponse.data
         ) {
           setFailingStudents((failingResponse.data as any).data || []);
+          setFailingTotalPages((failingResponse.data as any).pages || 1);
+          setFailingTotalCount((failingResponse.data as any).total || 0);
         }
 
         // Fetch call queue (students needing calls - At Risk and Behind)
-        const callQueueResponse = await dashboardApi.getFailingStudents(1, 15);
+        const callQueueResponse = await dashboardApi.getFailingStudents(callQueuePage, 10);
         if (callQueueResponse.error) {
           throw new Error(callQueueResponse.error);
         }
@@ -75,6 +111,8 @@ export default function DashboardPage() {
           'data' in callQueueResponse.data
         ) {
           setCallQueueStudents((callQueueResponse.data as any).data || []);
+          setCallQueueTotalPages((callQueueResponse.data as any).pages || 1);
+          setCallQueueTotalCount((callQueueResponse.data as any).total || 0);
         }
 
         setLastUpdated(new Date());
@@ -82,7 +120,10 @@ export default function DashboardPage() {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
         setError(message);
-        toast.error(message);
+        // Don't show error toast on initial load, use cached data if available
+        if (refreshing) {
+          toast.error(message);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -93,7 +134,7 @@ export default function DashboardPage() {
     // Auto-refresh every 60 seconds
     const interval = setInterval(fetchDashboardData, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [failingPage, callQueuePage]);
 
   const filteredFailingStudents =
     statusFilter === 'all'
@@ -107,19 +148,19 @@ export default function DashboardPage() {
       if (statsResponse.data) {
         setStats(statsResponse.data as DashboardStatsType);
       }
-      const failingResponse = await dashboardApi.getFailingStudents(1, 100);
+      const failingResponse = await dashboardApi.getFailingStudents(failingPage, 10);
       if (failingResponse.data) {
-        const failingData = Array.isArray(failingResponse.data)
-          ? failingResponse.data
-          : (failingResponse.data as any).data || [];
+        const failingData = (failingResponse.data as any).data || [];
         setFailingStudents(failingData);
+        setFailingTotalPages((failingResponse.data as any).pages || 1);
+        setFailingTotalCount((failingResponse.data as any).total || 0);
       }
-      const callQueueResponse = await dashboardApi.getFailingStudents(1, 15);
+      const callQueueResponse = await dashboardApi.getFailingStudents(callQueuePage, 10);
       if (callQueueResponse.data) {
-        const queueData = Array.isArray(callQueueResponse.data)
-          ? callQueueResponse.data
-          : (callQueueResponse.data as any).data || [];
+        const queueData = (callQueueResponse.data as any).data || [];
         setCallQueueStudents(queueData);
+        setCallQueueTotalPages((callQueueResponse.data as any).pages || 1);
+        setCallQueueTotalCount((callQueueResponse.data as any).total || 0);
       }
       setLastUpdated(new Date());
       toast.success('Dashboard refreshed');
@@ -246,11 +287,24 @@ export default function DashboardPage() {
                 Showing {filteredFailingStudents.length} of {failingStudents.length}
               </span>
             </div>
-            <FailingStudentsTable students={filteredFailingStudents} />
+            <FailingStudentsTable
+              students={filteredFailingStudents}
+              currentPage={failingPage}
+              totalPages={failingTotalPages}
+              totalCount={failingTotalCount}
+              onPageChange={setFailingPage}
+            />
           </div>
         </div>
         <div>
-          <CallQueue students={callQueueStudents} onRefresh={handleRefresh} />
+          <CallQueue
+            students={callQueueStudents}
+            onRefresh={handleRefresh}
+            currentPage={callQueuePage}
+            totalPages={callQueueTotalPages}
+            totalCount={callQueueTotalCount}
+            onPageChange={setCallQueuePage}
+          />
         </div>
       </div>
     </div>

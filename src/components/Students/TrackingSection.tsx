@@ -1,32 +1,18 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { AlertCircle, CheckCircle2, TrendingDown, Zap, Flag, Sparkles, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, TrendingDown, Zap, Flag } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import type { Assignment } from '@/interfaces/assignment.interface';
 import type { StudentStatus } from '@/models/Student';
 import { studentApi } from '@/lib/api-client';
+import { getCurrentActiveAssignment } from '@/lib/date-utils';
 import toast from 'react-hot-toast';
 
 interface TrackingSectionProps {
   student: StudentWithRelations;
   assignments: Assignment[];
   onUpdate: () => void;
-}
-
-interface AnalysisResult {
-  totalStudents: number;
-  completedAssignment: number;
-  completedCount: number;
-  notCompletedCount: number;
-  updatedCount: number;
-  students: Array<{
-    id: string;
-    name: string;
-    completed: boolean;
-    previousStatus: string;
-    newStatus: string;
-  }>;
 }
 
 const STATUS_OPTIONS: {
@@ -70,10 +56,6 @@ const STATUS_OPTIONS: {
 export function TrackingSection({ student, assignments, onUpdate }: TrackingSectionProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [autoDetectMode, setAutoDetectMode] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState<number>(1);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
 
   // Calculate auto-detected status
   const detectedStatus = useMemo(() => {
@@ -137,32 +119,6 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
     }
   };
 
-  const handleAnalyze = async () => {
-    try {
-      setIsAnalyzing(true);
-      const response = await fetch(`/api/students/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignmentNumber: selectedAssignment }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to analyze');
-      }
-
-      const data = await response.json();
-      setAnalysisResult(data.data);
-      setShowAnalysisModal(true);
-      toast.success('Analysis completed!');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to analyze students';
-      toast.error(message);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const currentStatus = student.currentStatus || 'On Track';
   const statusOption = STATUS_OPTIONS.find((opt) => opt.value === currentStatus);
   const StatusIcon = statusOption?.icon || CheckCircle2;
@@ -175,7 +131,10 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
   const completedCount = assignments.filter(
     (a) => a.status === 'COMPLETED' || a.status === 'SUBMITTED'
   ).length;
-  const totalAssignments = assignments.length || 10;
+
+  // Use the current active assignment (based on weeks) as the total for progress calculation
+  const currentActiveAssignment = getCurrentActiveAssignment();
+  const totalAssignments = currentActiveAssignment;
 
   return (
     <div className="bg-background border rounded-xl shadow-sm overflow-hidden">
@@ -342,179 +301,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
             Not Started
           </p>
         </div>
-
-        {/* Analyze Students Section */}
-        <div className="space-y-4 border-t pt-6 bg-linear-to-br from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-purple-600" />
-              Analyze All Students
-            </h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Set the current assignment and analyze all students to automatically update their
-              statuses based on completion.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
-                Select Current Assignment
-              </label>
-              <select
-                value={selectedAssignment}
-                onChange={(e) => setSelectedAssignment(parseInt(e.target.value))}
-                disabled={isAnalyzing}
-                className="w-full px-3 py-2 border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
-                  <option key={num} value={num}>
-                    A-{String(num).padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-              className="w-full px-4 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              {isAnalyzing ? 'Analyzing...' : 'Analyze All Students'}
-            </button>
-          </div>
-        </div>
       </div>
-
-      {/* Analysis Results Modal */}
-      {showAnalysisModal && analysisResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg border shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 px-6 py-4 border-b bg-linear-to-r from-purple-50 to-blue-50 flex items-center justify-between">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                Analysis Results
-              </h2>
-              <button
-                onClick={() => setShowAnalysisModal(false)}
-                className="p-1 hover:bg-muted rounded transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Summary Stats */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Total Students</p>
-                  <p className="text-3xl font-bold text-blue-700">{analysisResult.totalStudents}</p>
-                </div>
-                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Assignment Analyzed</p>
-                  <p className="text-3xl font-bold text-purple-700">
-                    A-{String(analysisResult.completedAssignment).padStart(2, '0')}
-                  </p>
-                </div>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Completed</p>
-                  <p className="text-3xl font-bold text-green-700">
-                    {analysisResult.completedCount}{' '}
-                    <span className="text-sm text-muted-foreground">
-                      (
-                      {Math.round(
-                        (analysisResult.completedCount / analysisResult.totalStudents) * 100
-                      )}
-                      %)
-                    </span>
-                  </p>
-                </div>
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Not Completed</p>
-                  <p className="text-3xl font-bold text-orange-700">
-                    {analysisResult.notCompletedCount}{' '}
-                    <span className="text-sm text-muted-foreground">
-                      (
-                      {Math.round(
-                        (analysisResult.notCompletedCount / analysisResult.totalStudents) * 100
-                      )}
-                      %)
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Updated Students */}
-              {analysisResult.updatedCount > 0 && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-sm font-semibold text-amber-900">
-                    ✓ {analysisResult.updatedCount} student
-                    {analysisResult.updatedCount !== 1 ? 's' : ''} status updated
-                  </p>
-                </div>
-              )}
-
-              {/* Detailed List */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                  Student Details
-                </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {analysisResult.students.map((student, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-lg border ${
-                        student.completed
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-orange-50 border-orange-200'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm">{student.name}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {student.completed ? (
-                              <span className="text-green-700 font-medium">✓ Completed</span>
-                            ) : (
-                              <span className="text-orange-700 font-medium">✗ Not Completed</span>
-                            )}
-                          </p>
-                        </div>
-                        {student.previousStatus !== student.newStatus && (
-                          <div className="text-xs">
-                            <span className="inline-block px-2 py-1 bg-gray-200 text-gray-700 rounded mr-2 font-medium">
-                              {student.previousStatus}
-                            </span>
-                            <span className="inline-block px-2 py-1 bg-purple-200 text-purple-700 rounded font-medium">
-                              {student.newStatus}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="sticky bottom-0 px-6 py-4 border-t bg-muted/20 flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowAnalysisModal(false);
-                  onUpdate();
-                }}
-                className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

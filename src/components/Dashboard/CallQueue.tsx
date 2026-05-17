@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Phone, ChevronRight, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Phone, ChevronRight, CheckCircle, Clock, AlertCircle, ChevronLeft } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { StudentAvatar } from '@/components/Students/StudentAvatar';
@@ -8,9 +8,20 @@ import { getStatusBadgeClass } from '@/lib/ui-helpers';
 interface CallQueueProps {
   students: StudentWithRelations[];
   onRefresh?: () => void;
+  currentPage?: number;
+  totalPages?: number;
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
 }
 
-export function CallQueue({ students, onRefresh }: CallQueueProps) {
+export function CallQueue({
+  students,
+  onRefresh,
+  currentPage = 1,
+  totalPages = 1,
+  totalCount = 0,
+  onPageChange,
+}: CallQueueProps) {
   const getPriorityIcon = (status: string) => {
     switch (status) {
       case 'Dropped':
@@ -94,6 +105,31 @@ export function CallQueue({ students, onRefresh }: CallQueueProps) {
       </div>
 
       <div className="px-5 py-4 border-t space-y-2">
+        {onPageChange && totalPages > 1 && (
+          <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b">
+            <span className="text-xs text-muted-foreground">
+              Page <strong>{currentPage}</strong>/{totalPages}
+            </span>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-1.5 border rounded text-xs hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Previous page"
+              >
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-1.5 border rounded text-xs hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next page"
+              >
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
         <button
           onClick={onRefresh}
           className="w-full px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors flex items-center justify-center gap-2"
@@ -102,7 +138,9 @@ export function CallQueue({ students, onRefresh }: CallQueueProps) {
           Refresh Queue
         </button>
         <p className="text-[11px] text-muted-foreground text-center">
-          {students.length} student{students.length !== 1 ? 's' : ''} need follow-up
+          {totalCount > 0
+            ? `${totalCount} student${totalCount !== 1 ? 's' : ''} in queue`
+            : `${students.length} student${students.length !== 1 ? 's' : ''} on this page`}
         </p>
       </div>
     </div>

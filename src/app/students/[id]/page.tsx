@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, AlertCircle } from 'lucide-react';
 import { studentApi } from '@/lib/api-client';
+import { cache, CACHE_KEYS, CACHE_EXPIRY } from '@/lib/cache';
 import { StudentProfileCard } from '@/components/Students/StudentProfileCard';
 import { AssignmentChecklist } from '@/components/Students/AssignmentChecklist';
 import { TrackingSection } from '@/components/Students/TrackingSection';
 import { CallLogSection } from '@/components/Students/CallLogSection';
 import { FollowUpSection } from '@/components/Students/FollowUpSection';
 import { PAGE_ROUTES } from '@/lib/constants';
+import { SkeletonCard, SkeletonTable } from '@/components/Common/SkeletonLoader';
 import type { StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -27,6 +29,15 @@ export default function StudentDetailPage({ params }: StudentDetailPageProps) {
     try {
       setLoading(true);
       setError(null);
+
+      // Try cache first
+      const cachedStudent = cache.get<StudentWithRelations>(CACHE_KEYS.STUDENT_DETAIL(studentId));
+      if (cachedStudent) {
+        setStudent(cachedStudent);
+        setLoading(false);
+        return;
+      }
+
       const response = await studentApi.getById(studentId);
 
       if (response.error) {
@@ -34,7 +45,10 @@ export default function StudentDetailPage({ params }: StudentDetailPageProps) {
       }
 
       if (response.data) {
-        setStudent(response.data as StudentWithRelations);
+        const studentData = response.data as StudentWithRelations;
+        setStudent(studentData);
+        // Cache the student detail for 10 minutes
+        cache.set(CACHE_KEYS.STUDENT_DETAIL(studentId), studentData, CACHE_EXPIRY.LONG);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch student';
@@ -56,17 +70,33 @@ export default function StudentDetailPage({ params }: StudentDetailPageProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 w-32 bg-muted rounded" />
-        <div className="h-10 w-64 bg-muted rounded" />
+      <div className="space-y-6">
+        {/* Breadcrumb Skeleton */}
+        <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+
+        {/* Header Skeleton */}
+        <div className="space-y-2">
+          <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-96 bg-muted rounded animate-pulse" />
+        </div>
+
+        {/* Main Grid - 3 Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column */}
           <div className="space-y-6">
-            <div className="h-48 bg-muted rounded-lg" />
-            <div className="h-96 bg-muted rounded-lg" />
+            <SkeletonCard count={1} />
+            <SkeletonTable rows={5} columns={2} />
           </div>
+
+          {/* Right Column */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="h-64 bg-muted rounded-lg" />
-            <div className="h-64 bg-muted rounded-lg" />
+            <SkeletonCard count={1} />
+            {/* 3-Column Side-by-Side Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <SkeletonCard count={1} />
+              <SkeletonCard count={1} />
+              <SkeletonCard count={1} />
+            </div>
           </div>
         </div>
       </div>
@@ -142,8 +172,27 @@ export default function StudentDetailPage({ params }: StudentDetailPageProps) {
             assignments={assignments}
             onUpdate={() => fetchStudent(studentId)}
           />
-          <CallLogSection callLogs={callLogs} studentId={studentId} />
-          <FollowUpSection followUps={followUps} studentId={studentId} />
+
+          {/* Call Log, Outreach, and Follow-Up - Side by Side */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1">
+              <CallLogSection callLogs={callLogs} studentId={studentId} />
+            </div>
+            <div className="md:col-span-1">
+              <FollowUpSection followUps={followUps} studentId={studentId} />
+            </div>
+            <div className="md:col-span-1">
+              {/* Outreach Section - placeholder for side-by-side layout */}
+              <div className="bg-background border rounded-xl shadow-sm overflow-hidden h-full">
+                <div className="px-6 py-4 border-b bg-linear-to-r from-primary/5 to-primary/10">
+                  <h2 className="text-lg font-semibold">Outreach</h2>
+                </div>
+                <div className="p-6 text-center text-muted-foreground">
+                  <p className="text-sm">Outreach information will appear here</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

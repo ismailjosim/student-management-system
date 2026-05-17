@@ -20,11 +20,16 @@ export async function GET(request: NextRequest) {
     // Build filter
     const filter: Record<string, unknown> = {};
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
-      ];
+      // If search contains @, treat as exact email match; otherwise, fuzzy search
+      if (search.includes('@')) {
+        filter.email = search.toLowerCase();
+      } else {
+        filter.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+          { phone: { $regex: search, $options: 'i' } },
+        ];
+      }
     }
     if (status) {
       filter.currentStatus = status;

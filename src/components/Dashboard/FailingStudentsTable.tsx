@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AlertTriangle, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { getStatusBadgeClass, getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { PAGE_ROUTES } from '@/lib/constants';
@@ -7,9 +7,19 @@ import { StudentAvatar } from '@/components/Students/StudentAvatar';
 
 interface FailingStudentsTableProps {
   students: StudentWithRelations[];
+  currentPage?: number;
+  totalPages?: number;
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
 }
 
-export function FailingStudentsTable({ students }: FailingStudentsTableProps) {
+export function FailingStudentsTable({
+  students,
+  currentPage = 1,
+  totalPages = 1,
+  totalCount = 0,
+  onPageChange,
+}: FailingStudentsTableProps) {
   return (
     <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b flex items-center justify-between">
@@ -86,6 +96,32 @@ export function FailingStudentsTable({ students }: FailingStudentsTableProps) {
           </tbody>
         </table>
       </div>
+      {onPageChange && totalPages > 1 && (
+        <div className="px-6 py-4 border-t flex items-center justify-between bg-muted/20">
+          <span className="text-xs text-muted-foreground">
+            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+            {totalCount > 0 && ` • ${totalCount} total students`}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 border rounded-md text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Prev
+            </button>
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 border rounded-md text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

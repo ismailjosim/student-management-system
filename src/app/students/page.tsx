@@ -4,8 +4,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StudentsTable } from '@/components/Students/StudentsTable';
+import { SkeletonTable } from '@/components/Common/SkeletonLoader';
 import { FileUp, Plus, AlertCircle, Sparkles, X, Loader2 } from 'lucide-react';
 import { studentApi } from '@/lib/api-client';
+import { cache, CACHE_KEYS, CACHE_EXPIRY } from '@/lib/cache';
 import { PAGE_ROUTES } from '@/lib/constants';
 import type { StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
@@ -64,6 +66,20 @@ export default function StudentsPage() {
       try {
         setLoading(true);
         setError(null);
+
+        // Try cache first if no search/filter (cache only works for base list)
+        let cachedData = null;
+        if (!search && !statusFilter && currentPage === 1) {
+          cachedData = cache.get<StudentWithRelations[]>(CACHE_KEYS.ALL_STUDENTS);
+          if (cachedData) {
+            setStudents(cachedData);
+            setTotalPages(Math.ceil(cachedData.length / PAGE_SIZE));
+            setTotalStudents(cachedData.length);
+            setLoading(false);
+            return;
+          }
+        }
+
         const response = await studentApi.getAllPaginated(
           currentPage,
           PAGE_SIZE,
@@ -81,12 +97,12 @@ export default function StudentsPage() {
           setStudents(data);
           // Extract pagination from rawResponse
           if ((response as any).rawResponse?.pagination) {
-            // console.log(
-            //   'Setting pagination from rawResponse:',
-            //   (response as any).rawResponse.pagination
-            // );
             setTotalPages((response as any).rawResponse.pagination.pages || 1);
             setTotalStudents((response as any).rawResponse.pagination.total || 0);
+          }
+          // Cache only if no search/filter
+          if (!search && !statusFilter && currentPage === 1) {
+            cache.set(CACHE_KEYS.ALL_STUDENTS, data, CACHE_EXPIRY.LONG);
           }
         } else if (
           data &&
@@ -99,6 +115,10 @@ export default function StudentsPage() {
           if ((response as any).rawResponse?.pagination) {
             setTotalPages((response as any).rawResponse.pagination.pages || 1);
             setTotalStudents((response as any).rawResponse.pagination.total || 0);
+          }
+          // Cache only if no search/filter
+          if (!search && !statusFilter && currentPage === 1) {
+            cache.set(CACHE_KEYS.ALL_STUDENTS, (data as any).data, CACHE_EXPIRY.LONG);
           }
         } else if (
           data &&
@@ -112,6 +132,10 @@ export default function StudentsPage() {
           if ((response as any).rawResponse?.pagination) {
             setTotalPages((response as any).rawResponse.pagination.pages || 1);
             setTotalStudents((response as any).rawResponse.pagination.total || 0);
+          }
+          // Cache only if no search/filter
+          if (!search && !statusFilter && currentPage === 1) {
+            cache.set(CACHE_KEYS.ALL_STUDENTS, (data as any).data, CACHE_EXPIRY.LONG);
           }
         } else {
           setStudents([]);
@@ -442,8 +466,8 @@ export default function StudentsPage() {
 
       {/* Loading State */}
       {loading ? (
-        <div className="space-y-4 animate-pulse">
-          <div className="h-64 bg-muted rounded-lg" />
+        <div className="space-y-4">
+          <SkeletonTable rows={10} columns={5} />
         </div>
       ) : (
         <StudentsTable

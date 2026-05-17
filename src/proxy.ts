@@ -1,6 +1,5 @@
 // src/proxy.ts
 
-import { auth } from '@/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Public routes

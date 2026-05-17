@@ -6,7 +6,7 @@ import { Phone, Plus, ChevronDown, ChevronUp, Trash2, AlertCircle } from 'lucide
 import { format } from 'date-fns';
 import type { CallLog } from '@/interfaces/callLog.interface';
 import { getCallLogStatusLabel, getCallLogStatusClass } from '@/lib/ui-helpers';
-import { callLogApi } from '@/lib/api-client';
+import { callLogApi, followUpApi } from '@/lib/api-client';
 import toast from 'react-hot-toast';
 
 interface CallLogSectionProps {
@@ -66,7 +66,30 @@ export function CallLogSection({ callLogs: initialCallLogs, studentId }: CallLog
 
       const newLog = response.data as CallLog;
       setCallLogs([newLog, ...callLogs]);
-      toast.success('Call log created successfully');
+
+      // Auto-generate follow-up for last call log
+      try {
+        const followUpDate = new Date();
+        followUpDate.setDate(followUpDate.getDate() + 5); // Schedule follow-up 5 days from now
+
+        const followUpNote = `Follow up on call from ${format(
+          newLog.date || new Date(),
+          'MMM dd, yyyy'
+        )}. Status: ${getCallLogStatusLabel(newLog.status)}.`;
+
+        await followUpApi.create({
+          studentId,
+          date: followUpDate,
+          note: followUpNote,
+        });
+
+        toast.success('Call log and follow-up created successfully');
+      } catch (followUpError) {
+        // Log was created, but follow-up failed - still show success for call log
+        console.error('Failed to create auto follow-up:', followUpError);
+        toast.success('Call log created. Could not auto-generate follow-up.');
+      }
+
       setShowForm(false);
       setForm({ status: 'RECEIVED', issues: '', promised: '', notes: '', calledBy: '' });
     } catch (err) {
