@@ -59,10 +59,9 @@ export async function upsertStudentAssignment(
     );
 
     const assignmentData: StudentAssignment = {
-      assignment: assignmentNumber,
+      assignmentNumber: assignmentNumber,
       status: status as 'PENDING' | 'SUBMITTED' | 'COMPLETED',
-      completedDate,
-      submittedDate,
+      date: completedDate || submittedDate,
     };
 
     if (existingIndex >= 0) {

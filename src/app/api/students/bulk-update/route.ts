@@ -2,7 +2,8 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
-import { invalidateStudentCache } from '@/lib/cache';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Invalidate student-related caches after bulk update
     if (result.modifiedCount > 0) {
-      await invalidateStudentCache();
+      revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
     }
 
     logger.info('POST /api/students/bulk-update', {

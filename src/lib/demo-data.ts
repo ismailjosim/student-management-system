@@ -148,45 +148,35 @@ export const DEMO_STUDENTS: StudentWithRelations[] = [
 
 export const DEMO_ASSIGNMENTS: Assignment[] = [
   {
-    _id: 'a1',
     assignmentNumber: 1,
     status: 'COMPLETED',
-    studentId: '1',
-    completedDate: new Date('2024-02-01'),
+    date: new Date('2024-02-01'),
   },
   {
-    _id: 'a2',
     assignmentNumber: 2,
     status: 'COMPLETED',
-    studentId: '1',
-    completedDate: new Date('2024-02-08'),
+    date: new Date('2024-02-08'),
   },
   {
-    _id: 'a3',
     assignmentNumber: 3,
     status: 'COMPLETED',
-    studentId: '1',
-    completedDate: new Date('2024-02-15'),
+    date: new Date('2024-02-15'),
   },
   {
-    _id: 'a4',
     assignmentNumber: 4,
     status: 'COMPLETED',
-    studentId: '1',
-    completedDate: new Date('2024-02-22'),
+    date: new Date('2024-02-22'),
   },
   {
-    _id: 'a5',
     assignmentNumber: 5,
     status: 'COMPLETED',
-    studentId: '1',
-    completedDate: new Date('2024-03-01'),
+    date: new Date('2024-03-01'),
   },
-  { _id: 'a6', assignmentNumber: 6, status: 'PENDING', studentId: '1' },
-  { _id: 'a7', assignmentNumber: 7, status: 'PENDING', studentId: '1' },
-  { _id: 'a8', assignmentNumber: 8, status: 'PENDING', studentId: '1' },
-  { _id: 'a9', assignmentNumber: 9, status: 'PENDING', studentId: '1' },
-  { _id: 'a10', assignmentNumber: 10, status: 'PENDING', studentId: '1' },
+  { assignmentNumber: 6, status: 'PENDING' },
+  { assignmentNumber: 7, status: 'PENDING' },
+  { assignmentNumber: 8, status: 'PENDING' },
+  { assignmentNumber: 9, status: 'PENDING' },
+  { assignmentNumber: 10, status: 'PENDING' },
 ];
 
 export const DEMO_CALL_LOGS: CallLog[] = [

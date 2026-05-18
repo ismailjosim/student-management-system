@@ -32,6 +32,7 @@ interface StudentFormData {
   phone: string;
   whatsapp: string;
   mentorshipJoiningStatus: boolean;
+  [key: string]: unknown;
 }
 
 const createInitialFormData = (student: StudentWithRelations): StudentFormData => ({
@@ -203,14 +204,14 @@ export function StudentProfileCard({ student, onUpdate }: StudentProfileCardProp
         </div>
 
         {/* Notes */}
-        {student.comments?.length > 0 && (
+        {(student.comments?.length ?? 0) > 0 && (
           <div className="border-t bg-muted/10 px-5 py-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Notes
             </p>
 
             <ul className="space-y-1">
-              {student.comments.map((comment, index) => (
+              {student.comments?.map((comment, index) => (
                 <li key={`${comment}-${index}`} className="text-sm text-muted-foreground">
                   • {comment}
                 </li>

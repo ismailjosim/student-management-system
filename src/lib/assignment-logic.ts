@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Student from '@/models/Student';
-import { StudentStatus } from '@/models/Student';
+import { StudentStatus, StudentAssignment } from '@/models/Student';
 
 /**
  * Get the current active assignment number based on today's date
@@ -24,7 +24,9 @@ export async function detectFailingStudent(studentId: string): Promise<boolean> 
     const student = await Student.findById(studentId).lean();
     if (!student || !student.assignments) return false;
 
-    const assignments = student.assignments.sort((a: any, b: any) => a.assignment - b.assignment);
+    const assignments = student.assignments.sort(
+      (a: any, b: any) => a.assignmentNumber - b.assignmentNumber
+    );
     if (assignments.length < 2) return false;
 
     let consecutiveMissed = 0;
@@ -95,7 +97,9 @@ export async function updateStudentStatus(studentId: string): Promise<StudentSta
     if (!student) return 'On Track';
 
     const assignments = student.assignments || [];
-    const completedCount = assignments.filter((a) => a.status === 'COMPLETED').length;
+    const completedCount = assignments.filter(
+      (a: StudentAssignment) => a.status === 'COMPLETED'
+    ).length;
 
     if (completedCount >= 10) {
       student.currentStatus = 'Completed';
@@ -140,14 +144,18 @@ export async function submitAssignment(
 
     if (!student.assignments) student.assignments = [];
 
-    const assignmentIndex = student.assignments.findIndex((a) => a.assignment === assignmentNumber);
+    const assignmentIndex = student.assignments.findIndex(
+      (a: StudentAssignment) => a.assignmentNumber === assignmentNumber
+    );
     if (assignmentIndex < 0) {
       student.assignments.push({
-        assignment: assignmentNumber,
+        assignmentNumber: assignmentNumber,
         status: 'SUBMITTED',
         submittedDate: submittedDate || new Date(),
       });
-      student.assignments.sort((a, b) => a.assignment - b.assignment);
+      student.assignments.sort(
+        (a: StudentAssignment, b: StudentAssignment) => a.assignmentNumber - b.assignmentNumber
+      );
     } else {
       student.assignments[assignmentIndex] = {
         ...student.assignments[assignmentIndex],
@@ -188,14 +196,18 @@ export async function completeAssignment(
 
     if (!student.assignments) student.assignments = [];
 
-    const assignmentIndex = student.assignments.findIndex((a) => a.assignment === assignmentNumber);
+    const assignmentIndex = student.assignments.findIndex(
+      (a: StudentAssignment) => a.assignmentNumber === assignmentNumber
+    );
     if (assignmentIndex < 0) {
       student.assignments.push({
-        assignment: assignmentNumber,
+        assignmentNumber: assignmentNumber,
         status: 'COMPLETED',
         completedDate: completedDate || new Date(),
       });
-      student.assignments.sort((a, b) => a.assignment - b.assignment);
+      student.assignments.sort(
+        (a: StudentAssignment, b: StudentAssignment) => a.assignmentNumber - b.assignmentNumber
+      );
     } else {
       student.assignments[assignmentIndex] = {
         ...student.assignments[assignmentIndex],

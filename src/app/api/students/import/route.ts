@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Student from '@/models/Student';
 import { processStudentImportFile } from '@/lib/file-parser';
 import { connectDB } from '@/lib/mongodb';
-import { invalidateStudentCache } from '@/lib/cache';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // Invalidate student-related caches after bulk import/update
     if (created.length > 0 || updated > 0) {
-      await invalidateStudentCache();
+      revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
     }
 
     return NextResponse.json({

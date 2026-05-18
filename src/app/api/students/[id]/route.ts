@@ -13,7 +13,8 @@ import { StudentUpdateSchema } from '@/lib/validators';
 import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
-import { invalidateStudentCache } from '@/lib/cache';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -113,7 +114,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Invalidate student-related caches
-    await invalidateStudentCache(id);
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
 
     logger.info('PUT /api/students/[id] - Success', { id });
     const response = createResponse(200, 'Student updated successfully', student);
@@ -167,7 +168,7 @@ export async function DELETE(
     ]);
 
     // Invalidate student-related caches
-    await invalidateStudentCache(id);
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
 
     logger.info('DELETE /api/students/[id] - Success', { id });
     const response = createResponse(200, 'Student deleted successfully', student);

@@ -8,7 +8,8 @@ import {
   logger,
 } from '@/lib/utils';
 import Student from '@/models/Student';
-import { invalidateStudentCache } from '@/lib/cache';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -48,7 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Invalidate student-related caches
-    await invalidateStudentCache(id);
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
 
     logger.info('PUT /api/students/[id]/status - Success', { id, status });
 

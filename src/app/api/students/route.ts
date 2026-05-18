@@ -11,7 +11,8 @@ import {
 import { StudentCreateSchema } from '@/lib/validators';
 import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
-import { invalidateStudentCache } from '@/lib/cache';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
     await student.save();
 
     // Invalidate student-related caches
-    await invalidateStudentCache(student._id.toString());
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
 
     logger.info('POST /api/students', { studentId: student._id, email: student.email });
     const response = createResponse(201, 'Student created successfully', student);

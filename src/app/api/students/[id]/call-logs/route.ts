@@ -6,11 +6,8 @@ import { CallLogCreateSchema } from '@/lib/validators';
 import { autoCreateFollowUp, resolveOpenFollowUpsAfterCall } from '@/lib/follow-up-logic';
 import CallLog from '@/models/CallLog';
 import Student from '@/models/Student';
-import {
-  invalidateCallLogCache,
-  invalidateFollowUpCache,
-  invalidateStudentCache,
-} from '@/lib/cache';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
@@ -139,9 +136,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await Student.findOneAndUpdate({ _id: id, ownerId: userId }, { lastContactedAt: contactedAt });
 
     // Invalidate related caches
-    await invalidateCallLogCache();
-    await invalidateFollowUpCache();
-    await invalidateStudentCache(id);
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.addCallLog);
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.addFollowUp);
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
 
     const response = createResponse(201, 'Call log created successfully', saved);
     return NextResponse.json(response, { status: 201 });

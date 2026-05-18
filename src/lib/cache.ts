@@ -1,188 +1,44 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Next.js v16 Cache Management
- * Client-side in-memory cache only.
- * Server-side cache invalidation is handled directly in API routes/Server Actions
- * via serverCacheManager from server-cache.ts
+ * Uses Next.js built-in Data Cache with on-demand revalidation
+ * No time-based expiry - revalidation only on data mutations
+ *
+ * See server-cache.ts for revalidation functions
  */
 
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  revalidateIn: number; // seconds
-}
-
-class ServerSideCache {
-  private prefix = 'sms_cache_';
-  private memoryCache = new Map<string, CacheEntry<any>>();
-
-  /**
-   * Get cached data (from in-memory store for client components)
-   */
-  get<T>(key: string): T | null {
-    try {
-      const entry = this.memoryCache.get(`${this.prefix}${key}`);
-      if (!entry) return null;
-
-      const now = Date.now();
-      const ageSeconds = (now - entry.timestamp) / 1000;
-
-      if (ageSeconds > entry.revalidateIn) {
-        this.remove(key);
-        return null;
-      }
-
-      return entry.data as T;
-    } catch (error) {
-      console.error('Cache retrieval error:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Store data in memory cache (for client-side)
-   * Server-side caching is handled by Next.js force-cache
-   * @param key Cache key
-   * @param data Data to cache
-   * @param revalidateIn Revalidation time in seconds (default: 300s/5min)
-   */
-  set<T>(key: string, data: T, revalidateIn: number = 300): void {
-    try {
-      const entry: CacheEntry<T> = {
-        data,
-        timestamp: Date.now(),
-        revalidateIn,
-      };
-      this.memoryCache.set(`${this.prefix}${key}`, entry);
-    } catch (error) {
-      console.error('Cache storage error:', error);
-    }
-  }
-
-  /**
-   * Remove cached data
-   */
-  remove(key: string): void {
-    try {
-      this.memoryCache.delete(`${this.prefix}${key}`);
-    } catch (error) {
-      console.error('Cache removal error:', error);
-    }
-  }
-
-  /**
-   * Clear all cached data
-   */
-  clear(): void {
-    try {
-      this.memoryCache.clear();
-    } catch (error) {
-      console.error('Cache clear error:', error);
-    }
-  }
-
-  /**
-   * Check if a cache entry exists and is valid
-   */
-  exists(key: string): boolean {
-    return this.get(key) !== null;
-  }
-
-  /**
-   * Invalidate multiple cache keys at once
-   */
-  invalidate(keys: string[] | readonly string[]): void {
-    (keys as string[]).forEach((key) => this.remove(key));
-  }
-
-  /**
-   * Clear cache by pattern (e.g., clear all student_* keys)
-   */
-  clearByPattern(pattern: string): void {
-    try {
-      const regex = new RegExp(`${this.prefix}${pattern}`);
-      for (const key of this.memoryCache.keys()) {
-        if (regex.test(key)) {
-          this.memoryCache.delete(key);
-        }
-      }
-    } catch (error) {
-      console.error('Cache pattern clear error:', error);
-    }
-  }
-
-  /**
-   * Get cache stats (for debugging)
-   */
-  getStats(): { totalEntries: number; sizes: Record<string, number> } {
-    try {
-      const sizes: Record<string, number> = {};
-
-      for (const [key, entry] of this.memoryCache.entries()) {
-        const size = JSON.stringify(entry.data).length;
-        sizes[key.replace(this.prefix, '')] = size;
-      }
-
-      return {
-        totalEntries: this.memoryCache.size,
-        sizes,
-      };
-    } catch (error) {
-      console.error('Cache stats error:', error);
-      return { totalEntries: 0, sizes: {} };
-    }
-  }
-}
-
-export const cache = new ServerSideCache();
-
 /**
- * Cache keys used throughout the app
+ * Cache tags used throughout the app for on-demand revalidation
  */
 export const CACHE_KEYS = {
   // Dashboard
-  DASHBOARD_STATS: 'dashboard_stats',
-  FAILING_STUDENTS: 'failing_students',
-  CALL_QUEUE_STUDENTS: 'call_queue_students',
+  DASHBOARD_STATS: 'dashboard-stats',
+  FAILING_STUDENTS: 'failing-students',
+  CALL_QUEUE_STUDENTS: 'call-queue-students',
 
   // Students
-  ALL_STUDENTS: 'all_students',
-  STUDENT_DETAIL: (id: string) => `student_${id}`,
-  STUDENT_LIST: 'student_list',
+  ALL_STUDENTS: 'all-students',
+  STUDENT_DETAIL: (id: string) => `student-${id}`,
+  STUDENT_LIST: 'student-list',
 
   // Assignments & Tracking
   ASSIGNMENTS: 'assignments',
-  ASSIGNMENT_DETAIL: (id: string) => `assignment_${id}`,
+  ASSIGNMENT_DETAIL: (id: string) => `assignment-${id}`,
 
   // Call Logs & Follow-ups
-  CALL_LOGS: 'call_logs',
-  FOLLOW_UPS: 'follow_ups',
+  CALL_LOGS: 'call-logs',
+  FOLLOW_UPS: 'follow-ups',
 
   // Settings
   SETTINGS: 'settings',
-  CURRENT_ASSIGNMENT: 'current_assignment',
+  CURRENT_ASSIGNMENT: 'current-assignment',
 
   // Reports
-  CALL_STATISTICS: 'call_statistics',
-  SUBMISSION_DATA: 'submission_data',
+  CALL_STATISTICS: 'call-statistics',
+  SUBMISSION_DATA: 'submission-data',
 } as const;
 
 /**
- * Cache expiration times (in seconds)
- * These durations are for client-side in-memory cache only.
- * Server-side uses Next.js force-cache (indefinite until revalidation).
- */
-export const CACHE_EXPIRY = {
-  SHORT: 2 * 60, // 2 minutes
-  MEDIUM: 5 * 60, // 5 minutes (default)
-  LONG: 15 * 60, // 15 minutes
-  VERY_LONG: 30 * 60, // 30 minutes
-} as const;
-
-/**
- * Client-side cache invalidation triggers.
- * For server-side invalidation, call serverCacheManager directly
- * from your API routes or Server Actions.
+ * Cache invalidation trigger groups
  */
 export const CACHE_INVALIDATION_TRIGGERS = {
   updateStudent: [
@@ -193,47 +49,86 @@ export const CACHE_INVALIDATION_TRIGGERS = {
     CACHE_KEYS.DASHBOARD_STATS,
     CACHE_KEYS.SUBMISSION_DATA,
   ],
+
   updateAssignment: [
     CACHE_KEYS.ASSIGNMENTS,
     CACHE_KEYS.DASHBOARD_STATS,
     CACHE_KEYS.SUBMISSION_DATA,
   ],
+
   addCallLog: [CACHE_KEYS.CALL_LOGS, CACHE_KEYS.CALL_STATISTICS],
+
   addFollowUp: [CACHE_KEYS.FOLLOW_UPS, CACHE_KEYS.CALL_QUEUE_STUDENTS],
 } as const;
 
 /**
- * Client-side only cache invalidation helpers.
- * These only clear the in-memory cache.
- *
- * For server cache invalidation, call serverCacheManager from server-cache.ts
- * directly inside your API route or Server Action, e.g.:
- *
- *   import { serverCacheManager } from '@/lib/server-cache';
- *   serverCacheManager.invalidateStudent(studentId);
+ * Cache expiry constants for client-side memory cache.
  */
-export function invalidateStudentCache(studentId?: string): void {
-  if (studentId) {
-    cache.remove(CACHE_KEYS.STUDENT_DETAIL(studentId));
-  }
-  cache.invalidate(CACHE_INVALIDATION_TRIGGERS.updateStudent);
+export const CACHE_EXPIRY = {
+  SHORT: 2 * 60, // 2 minutes
+  MEDIUM: 5 * 60, // 5 minutes
+  LONG: 15 * 60, // 15 minutes
+  VERY_LONG: 30 * 60, // 30 minutes
+} as const;
+
+type CacheEntry<T> = {
+  value: T;
+  expiresAt: number | null;
+};
+
+const memoryCache = new Map<string, CacheEntry<unknown>>();
+
+export const cache = {
+  get: <T>(key: string): T | null => {
+    const entry = memoryCache.get(key);
+
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt && Date.now() > entry.expiresAt) {
+      memoryCache.delete(key);
+      return null;
+    }
+
+    return entry.value as T;
+  },
+
+  set: <T>(key: string, value: T, expirySeconds?: number): void => {
+    const expiresAt = expirySeconds ? Date.now() + expirySeconds * 1000 : null;
+
+    memoryCache.set(key, {
+      value,
+      expiresAt,
+    });
+  },
+
+  remove: (key: string): void => {
+    memoryCache.delete(key);
+  },
+
+  clear: (): void => {
+    memoryCache.clear();
+  },
+};
+
+/**
+ * Server-side cache invalidation functions
+ *
+ * DEPRECATED:
+ * Use revalidateCacheTags() from server-cache.ts directly.
+ */
+
+export async function invalidateStudentCache(
+  _studentId?: string
+): Promise<void> {
+  // No-op
 }
 
-export function invalidateAssignmentCache(assignmentId?: string): void {
-  if (assignmentId) {
-    cache.remove(CACHE_KEYS.ASSIGNMENT_DETAIL(assignmentId));
-  }
-  cache.invalidate(CACHE_INVALIDATION_TRIGGERS.updateAssignment);
+export async function invalidateCallLogCache(): Promise<void> {
+  // No-op
 }
 
-export function invalidateCallLogCache(): void {
-  cache.invalidate(CACHE_INVALIDATION_TRIGGERS.addCallLog);
-}
-
-export function invalidateFollowUpCache(): void {
-  cache.invalidate(CACHE_INVALIDATION_TRIGGERS.addFollowUp);
-}
-
-export function clearAllCaches(): void {
-  cache.clear();
+export async function invalidateFollowUpCache(): Promise<void> {
+  // No-op
 }

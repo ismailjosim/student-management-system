@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CACHE_TAGS } from './cache-config';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://student-management-system-blue-beta.vercel.app';
+const API_BASE_URL = typeof window === 'undefined' ? process.env.NEXT_PUBLIC_API_URL || '' : '';
 
 interface FetchOptions extends RequestInit {
   cacheTags?: string[];
-  cacheStrategy?: 'force-cache' | 'no-cache' | 'no-store';
 }
 
 export class ApiClient {
@@ -22,26 +20,23 @@ export class ApiClient {
   ): Promise<{ data?: T; error?: string; statusCode: number; rawResponse?: any }> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
-      const { cacheTags, cacheStrategy, ...fetchOptions } = options || {};
+      const { cacheTags, ...fetchOptions } = options || {};
+      const isBrowser = typeof window !== 'undefined';
 
-      // For server-side requests, use Next.js cache with force-cache
-      const cacheControl = cacheStrategy || 'force-cache';
-      const nextConfig: any = {
-        revalidate: 3600, // Revalidate every hour (can be overridden by cacheTags)
-      };
+      const nextConfig: any = {};
 
-      if (cacheTags) {
+      if (cacheTags && !isBrowser && fetchOptions.method === 'GET') {
         nextConfig.tags = cacheTags;
       }
 
       const response = await fetch(url, {
         ...fetchOptions,
-        next: nextConfig,
-        // Use force-cache by default for GET requests
-        cache: fetchOptions.method === 'GET' ? cacheControl : 'no-store',
+        next: Object.keys(nextConfig).length > 0 ? nextConfig : undefined,
+        cache: fetchOptions.method === 'GET' && !isBrowser ? undefined : 'no-store',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          ...fetchOptions?.headers,
+          ...fetchOptions.headers,
         },
       });
 
@@ -61,6 +56,7 @@ export class ApiClient {
       };
     } catch (error) {
       console.error('API request error:', error);
+
       return {
         error: error instanceof Error ? error.message : 'An error occurred',
         statusCode: 500,
@@ -69,7 +65,10 @@ export class ApiClient {
   }
 
   async get<T>(endpoint: string, options?: FetchOptions) {
-    return this.request<T>(endpoint, { ...options, method: 'GET' });
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'GET',
+    });
   }
 
   async post<T>(endpoint: string, body?: any, options?: FetchOptions) {
@@ -89,22 +88,21 @@ export class ApiClient {
   }
 
   async delete<T>(endpoint: string, options?: FetchOptions) {
-    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'DELETE',
+    });
   }
 }
 
 export const apiClient = new ApiClient();
 
-/**
- * Student endpoints with force-cache support
- * Server-side caching uses Next.js fetch with cache tags
- */
 export const studentApi = {
   getAll: () =>
     apiClient.get('/api/students', {
-      method: 'GET',
       cacheTags: [CACHE_TAGS.ALL_STUDENTS, CACHE_TAGS.STUDENT_LIST],
     }),
+
   getAllPaginated: (
     page: number = 1,
     limit: number = 10,
@@ -117,135 +115,110 @@ export const studentApi = {
     } = {}
   ) => {
     const params = new URLSearchParams();
+
     params.set('page', page.toString());
     params.set('limit', limit.toString());
+
     if (search) params.set('search', search);
     if (status) params.set('status', status);
     if (filters.progress) params.set('progress', filters.progress);
     if (filters.group) params.set('group', filters.group);
     if (filters.device) params.set('device', filters.device);
-    // Only cache first page without filters
+
     const shouldCache =
       page === 1 && !search && !status && !filters.progress && !filters.group && !filters.device;
+
     return apiClient.get(`/api/students?${params.toString()}`, {
       cacheTags: shouldCache ? [CACHE_TAGS.STUDENT_LIST] : undefined,
     });
   },
+
   getById: (id: string) =>
     apiClient.get(`/api/students/${id}`, {
       cacheTags: [`student-${id}`],
     }),
-  create: (data: Record<string, unknown>) =>
-    apiClient.post('/api/students', data, {
-      cacheStrategy: 'no-store', // Don't cache POST requests
-    }),
+
+  create: (data: Record<string, unknown>) => apiClient.post('/api/students', data),
+
   update: (id: string, data: Record<string, unknown>) =>
-    apiClient.put(`/api/students/${id}`, data, {
-      cacheStrategy: 'no-store', // Don't cache PUT requests
-    }),
-  delete: (id: string) =>
-    apiClient.delete(`/api/students/${id}`, {
-      cacheStrategy: 'no-store', // Don't cache DELETE requests
-    }),
+    apiClient.put(`/api/students/${id}`, data),
+
+  delete: (id: string) => apiClient.delete(`/api/students/${id}`),
 };
 
-/**
- * Assignment endpoints with force-cache support
- */
 export const assignmentApi = {
   getAll: () =>
     apiClient.get('/api/assignments', {
       cacheTags: [CACHE_TAGS.ASSIGNMENTS],
     }),
+
   getByStudentId: (studentId: string) =>
     apiClient.get(`/api/students/${studentId}/assignments`, {
       cacheTags: [CACHE_TAGS.ASSIGNMENTS],
     }),
+
   create: (studentId: string, data: Record<string, unknown>) =>
-    apiClient.post(`/api/students/${studentId}/assignments`, data, {
-      cacheStrategy: 'no-store',
-    }),
+    apiClient.post(`/api/students/${studentId}/assignments`, data),
+
   update: (studentId: string, data: Record<string, unknown>) =>
-    apiClient.put(`/api/students/${studentId}/assignments`, data, {
-      cacheStrategy: 'no-store',
-    }),
+    apiClient.put(`/api/students/${studentId}/assignments`, data),
+
   delete: (studentId: string, assignmentNumber: number) =>
-    apiClient.delete(
-      `/api/students/${studentId}/assignments?assignmentNumber=${assignmentNumber}`,
-      {
-        cacheStrategy: 'no-store',
-      }
-    ),
+    apiClient.delete(`/api/students/${studentId}/assignments?assignmentNumber=${assignmentNumber}`),
 };
 
-/**
- * CallLog endpoints with force-cache support
- */
 export const callLogApi = {
   getAll: () =>
     apiClient.get('/api/call-logs', {
       cacheTags: [CACHE_TAGS.CALL_LOGS, CACHE_TAGS.CALL_STATISTICS],
     }),
+
   getById: (id: string) =>
     apiClient.get(`/api/call-logs/${id}`, {
       cacheTags: [CACHE_TAGS.CALL_LOGS],
     }),
-  create: (data: Record<string, unknown>) =>
-    apiClient.post('/api/call-logs', data, {
-      cacheStrategy: 'no-store',
-    }),
+
+  create: (data: Record<string, unknown>) => apiClient.post('/api/call-logs', data),
+
   update: (id: string, data: Record<string, unknown>) =>
-    apiClient.put(`/api/call-logs/${id}`, data, {
-      cacheStrategy: 'no-store',
-    }),
-  delete: (id: string) =>
-    apiClient.delete(`/api/call-logs/${id}`, {
-      cacheStrategy: 'no-store',
-    }),
+    apiClient.put(`/api/call-logs/${id}`, data),
+
+  delete: (id: string) => apiClient.delete(`/api/call-logs/${id}`),
 };
 
-/**
- * FollowUp endpoints with force-cache support
- */
 export const followUpApi = {
   getAll: () =>
     apiClient.get('/api/follow-ups', {
       cacheTags: [CACHE_TAGS.FOLLOW_UPS],
     }),
+
   getById: (id: string) =>
     apiClient.get(`/api/follow-ups/${id}`, {
       cacheTags: [CACHE_TAGS.FOLLOW_UPS],
     }),
-  create: (data: Record<string, unknown>) =>
-    apiClient.post('/api/follow-ups', data, {
-      cacheStrategy: 'no-store',
-    }),
+
+  create: (data: Record<string, unknown>) => apiClient.post('/api/follow-ups', data),
+
   update: (id: string, data: Record<string, unknown>) =>
-    apiClient.put(`/api/follow-ups/${id}`, data, {
-      cacheStrategy: 'no-store',
-    }),
-  delete: (id: string) =>
-    apiClient.delete(`/api/follow-ups/${id}`, {
-      cacheStrategy: 'no-store',
-    }),
+    apiClient.put(`/api/follow-ups/${id}`, data),
+
+  delete: (id: string) => apiClient.delete(`/api/follow-ups/${id}`),
 };
 
-/**
- * Dashboard endpoints with force-cache support
- */
 export const dashboardApi = {
   getStats: () =>
     apiClient.get('/api/dashboard/stats', {
       cacheTags: [CACHE_TAGS.DASHBOARD_STATS],
     }),
+
   getFailingStudents: (page: number = 1, limit: number = 10) =>
     apiClient.get(`/api/dashboard/failing-students?page=${page}&limit=${limit}`, {
       cacheTags: [CACHE_TAGS.FAILING_STUDENTS],
     }),
+
   getCallQueue: (page: number = 1, limit: number = 10) =>
-    apiClient.get(`/api/call-queue?page=${page}&limit=${limit}`, {
-      cacheStrategy: 'no-store',
-    }),
+    apiClient.get(`/api/call-queue?page=${page}&limit=${limit}`),
+
   getAssignmentStats: () =>
     apiClient.get('/api/dashboard/assignment-stats', {
       cacheTags: [CACHE_TAGS.SUBMISSION_DATA, CACHE_TAGS.DASHBOARD_STATS],

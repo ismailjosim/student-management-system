@@ -1,80 +1,67 @@
 /**
- * Cache configuration constants
+ * Cache configuration constants - Next.js v16
+ * Uses on-demand revalidation only (no time-based expiry)
  * Client-safe module - no server-only API imports
- * Used by both client-side API client and server-side cache manager
  */
 
 /**
  * Cache configuration for different data types
- * Defines cache tags and revalidation strategies
+ * Defines cache tags used with Next.js Data Cache
+ * Revalidation happens only on mutations via revalidateTag()
  */
 export const CACHE_CONFIG = {
   // Dashboard
   DASHBOARD_STATS: {
     tag: 'dashboard-stats',
-    revalidateSeconds: 300, // 5 minutes
   },
   FAILING_STUDENTS: {
     tag: 'failing-students',
-    revalidateSeconds: 300,
   },
   CALL_QUEUE_STUDENTS: {
     tag: 'call-queue-students',
-    revalidateSeconds: 180, // 3 minutes (more frequent updates)
   },
 
   // Students
   ALL_STUDENTS: {
     tag: 'all-students',
-    revalidateSeconds: 600, // 10 minutes
   },
   STUDENT_DETAIL: (id: string) => ({
     tag: `student-${id}`,
-    revalidateSeconds: 600,
   }),
   STUDENT_LIST: {
     tag: 'student-list',
-    revalidateSeconds: 600,
   },
 
   // Assignments & Tracking
   ASSIGNMENTS: {
     tag: 'assignments',
-    revalidateSeconds: 600,
   },
   ASSIGNMENT_DETAIL: (id: string) => ({
     tag: `assignment-${id}`,
-    revalidateSeconds: 600,
   }),
 
   // Call Logs & Follow-ups
   CALL_LOGS: {
     tag: 'call-logs',
-    revalidateSeconds: 180,
   },
   FOLLOW_UPS: {
     tag: 'follow-ups',
-    revalidateSeconds: 180,
   },
 
   // Settings
   SETTINGS: {
     tag: 'settings',
-    revalidateSeconds: 3600, // 1 hour (rarely changes)
   },
   CURRENT_ASSIGNMENT: {
     tag: 'current-assignment',
-    revalidateSeconds: 600,
   },
 
   // Reports
   CALL_STATISTICS: {
     tag: 'call-statistics',
-    revalidateSeconds: 300,
   },
   SUBMISSION_DATA: {
     tag: 'submission-data',
-    revalidateSeconds: 300,
   },
 } as const;
 
