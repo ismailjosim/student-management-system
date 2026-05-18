@@ -19,12 +19,13 @@ export const calculateNextFollowUp = (date: Date, daysAfter: number = FOLLOW_UP_
 /**
  * Get all overdue follow-ups
  */
-export const getOverdueFollowUps = async () => {
+export const getOverdueFollowUps = async (ownerId: string) => {
   try {
     const now = new Date();
     const overdueFollowUps = await FollowUp.find({
       date: { $lt: now },
       status: { $ne: 'completed' },
+      ownerId,
     }).populate('studentId');
 
     return overdueFollowUps;
@@ -36,7 +37,7 @@ export const getOverdueFollowUps = async () => {
 /**
  * Get upcoming follow-ups for specified number of days
  */
-export const getUpcomingFollowUps = async (daysAhead: number = 7) => {
+export const getUpcomingFollowUps = async (daysAhead: number = 7, ownerId: string) => {
   try {
     const now = new Date();
     const futureDate = new Date(now);
@@ -45,6 +46,7 @@ export const getUpcomingFollowUps = async (daysAhead: number = 7) => {
     const upcomingFollowUps = await FollowUp.find({
       date: { $gte: now, $lte: futureDate },
       status: 'pending',
+      ownerId,
     })
       .populate('studentId')
       .sort({ date: 1 });
@@ -61,10 +63,11 @@ export const getUpcomingFollowUps = async (daysAhead: number = 7) => {
 export const autoCreateFollowUp = async (
   callLogId: string,
   studentId: string,
-  daysAfter: number = FOLLOW_UP_DAYS
+  daysAfter: number = FOLLOW_UP_DAYS,
+  ownerId: string
 ) => {
   try {
-    const callLog = await CallLog.findById(callLogId);
+    const callLog = await CallLog.findOne({ _id: callLogId, ownerId });
     if (!callLog) throw new Error('Call log not found');
 
     const followUpDate = calculateNextFollowUp(callLog.date, daysAfter);
@@ -73,6 +76,7 @@ export const autoCreateFollowUp = async (
       date: followUpDate,
       note: `Follow-up from call on ${callLog.date.toLocaleDateString()}`,
       studentId,
+      ownerId,
       status: 'pending',
     });
 
@@ -90,11 +94,13 @@ export const autoCreateFollowUp = async (
  */
 export const resolveOpenFollowUpsAfterCall = async (
   studentId: string,
-  completedDate = new Date()
+  completedDate = new Date(),
+  ownerId: string
 ) => {
   return FollowUp.updateMany(
     {
       studentId,
+      ownerId,
       status: { $in: ['pending', 'overdue'] },
     },
     {
@@ -113,11 +119,12 @@ export const resolveOpenFollowUpsAfterCall = async (
  * - Last call was > 7 days ago, OR
  * - Has overdue follow-ups
  */
-export const isFollowUpNeeded = async (studentId: string): Promise<boolean> => {
+export const isFollowUpNeeded = async (studentId: string, ownerId: string): Promise<boolean> => {
   try {
     // Check for existing pending follow-ups
     const pendingFollowUps = await FollowUp.findOne({
       studentId,
+      ownerId,
       status: 'pending',
     });
 
@@ -128,6 +135,7 @@ export const isFollowUpNeeded = async (studentId: string): Promise<boolean> => {
     // Check if overdue follow-up exists
     const overdueFollowUp = await FollowUp.findOne({
       studentId,
+      ownerId,
       date: { $lt: new Date() },
       status: { $ne: 'completed' },
     });
@@ -137,7 +145,7 @@ export const isFollowUpNeeded = async (studentId: string): Promise<boolean> => {
     }
 
     // Check last call
-    const lastCall = await CallLog.findOne({ studentId }).sort({ date: -1 });
+    const lastCall = await CallLog.findOne({ studentId, ownerId }).sort({ date: -1 });
 
     if (!lastCall) {
       return true; // Never called
@@ -161,7 +169,7 @@ export const isFollowUpNeeded = async (studentId: string): Promise<boolean> => {
  * - No calls in X days
  * - Pending assignments
  */
-export const getCallQueue = async (limit: number = 50) => {
+export const getCallQueue = async (limit: number = 50, ownerId: string) => {
   try {
     const now = new Date();
     const sevenDaysAgo = new Date(now);
@@ -170,6 +178,7 @@ export const getCallQueue = async (limit: number = 50) => {
     // Students contacted recently are handled for now. Exclude them even if
     // they still have historical overdue follow-ups in the database.
     const recentCallStudents = await CallLog.find({
+      ownerId,
       date: { $gte: sevenDaysAgo },
     }).distinct('studentId');
 
@@ -177,17 +186,20 @@ export const getCallQueue = async (limit: number = 50) => {
 
     // Get students with overdue follow-ups
     const overdueFollowUps = await FollowUp.find({
+      ownerId,
       date: { $lt: now },
       status: { $ne: 'completed' },
       studentId: { $nin: recentCallStudentIds },
     }).distinct('studentId');
 
     const notCalledInSevenDays = await Student.find({
+      ownerId,
       _id: { $nin: recentCallStudentIds },
     }).limit(limit);
 
     // Combine and sort by priority (overdue first)
     const students = await Student.find({
+      ownerId,
       _id: {
         $in: [
           ...overdueFollowUps.map((id: any) => new ObjectId(id.toString())),
@@ -199,13 +211,17 @@ export const getCallQueue = async (limit: number = 50) => {
     // Enrich with last call and follow-up info
     const queue = await Promise.all(
       students.map(async (student) => {
-        const lastCall = await CallLog.findOne({ studentId: student._id }).sort({ date: -1 });
+        const lastCall = await CallLog.findOne({ studentId: student._id, ownerId }).sort({
+          date: -1,
+        });
         const nextFollowUp = await FollowUp.findOne({
           studentId: student._id,
+          ownerId,
           status: 'pending',
         });
         const overdueFollowUp = await FollowUp.findOne({
           studentId: student._id,
+          ownerId,
           date: { $lt: now },
           status: { $ne: 'completed' },
         });
@@ -235,11 +251,12 @@ export const getCallQueue = async (limit: number = 50) => {
 /**
  * Update follow-up status to overdue if date passed
  */
-export const updateOverdueStatus = async () => {
+export const updateOverdueStatus = async (ownerId: string) => {
   try {
     const now = new Date();
     const result = await FollowUp.updateMany(
       {
+        ownerId,
         date: { $lt: now },
         status: 'pending',
       },
@@ -257,10 +274,10 @@ export const updateOverdueStatus = async () => {
 /**
  * Mark follow-up as completed
  */
-export const completeFollowUp = async (followUpId: string) => {
+export const completeFollowUp = async (followUpId: string, ownerId: string) => {
   try {
-    const followUp = await FollowUp.findByIdAndUpdate(
-      followUpId,
+    const followUp = await FollowUp.findOneAndUpdate(
+      { _id: followUpId, ownerId },
       {
         status: 'completed',
         completedDate: new Date(),
@@ -277,18 +294,22 @@ export const completeFollowUp = async (followUpId: string) => {
 /**
  * Get call statistics
  */
-export const getCallStatistics = async () => {
+export const getCallStatistics = async (ownerId: string) => {
   try {
-    const totalCalls = await CallLog.countDocuments();
+    const totalCalls = await CallLog.countDocuments({ ownerId });
     const now = new Date();
     const weekAgo = new Date(now);
     weekAgo.setDate(weekAgo.getDate() - 7);
 
     const callsThisWeek = await CallLog.countDocuments({
+      ownerId,
       date: { $gte: weekAgo },
     });
 
     const callsByStatus = await CallLog.aggregate([
+      {
+        $match: { ownerId },
+      },
       {
         $group: {
           _id: '$status',
@@ -297,14 +318,14 @@ export const getCallStatistics = async () => {
       },
     ]);
 
-    const studentsWithCalls = await CallLog.distinct('studentId');
-    const totalStudents = await Student.countDocuments();
+    const studentsWithCalls = await CallLog.distinct('studentId', { ownerId });
+    const totalStudents = await Student.countDocuments({ ownerId });
     const studentsNeverCalled = totalStudents - studentsWithCalls.length;
 
     const avgCallsPerStudent = totalStudents > 0 ? totalCalls / studentsWithCalls.length : 0;
 
     // Calculate average days between calls
-    const callsData = await CallLog.find().sort({ date: -1 }).limit(100);
+    const callsData = await CallLog.find({ ownerId }).sort({ date: -1 }).limit(100);
     let totalDaysBetween = 0;
     let gaps = 0;
 

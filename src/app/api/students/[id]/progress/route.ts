@@ -1,11 +1,16 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, isValidObjectId, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import type { StudentAssignment } from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate ObjectId format
@@ -14,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Get student details
-    const student = await Student.findById(id).lean();
+    const student = await Student.findOne({ _id: id, ownerId: userId }).lean();
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -23,9 +28,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const assignments = student.assignments || [];
 
     // Calculate statistics
-    const submitted = assignments.filter((a) => a.status === 'SUBMITTED').length;
-    const completed = assignments.filter((a) => a.status === 'COMPLETED').length;
-    const pending = assignments.filter((a) => a.status === 'PENDING').length;
+    const submitted = assignments.filter((a: StudentAssignment) => a.status === 'SUBMITTED').length;
+    const completed = assignments.filter((a: StudentAssignment) => a.status === 'COMPLETED').length;
+    const pending = assignments.filter((a: StudentAssignment) => a.status === 'PENDING').length;
     const totalAssignments = assignments.length;
 
     // Calculate percentage complete
@@ -33,17 +38,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       totalAssignments > 0 ? Math.round(((submitted + completed) / totalAssignments) * 100) : 0;
 
     // Find next assignment to complete
-    const nextAssignment = assignments.find((a) => a.status !== 'COMPLETED');
+    const nextAssignment = assignments.find((a: StudentAssignment) => a.status !== 'COMPLETED');
     const nextAssignmentDue = nextAssignment
-      ? `A-${String(nextAssignment.assignment).padStart(2, '0')}`
+      ? `A-${String(nextAssignment.assignmentNumber).padStart(2, '0')}`
       : null;
 
     // Build assignment list with details
-    const assignmentsList = assignments.map((a) => ({
-      number: a.assignment,
+    const assignmentsList = assignments.map((a: StudentAssignment) => ({
+      number: a.assignmentNumber,
       status: a.status,
-      completedDate: a.completedDate ? new Date(a.completedDate).toISOString().split('T')[0] : null,
-      submittedDate: a.submittedDate ? new Date(a.submittedDate).toISOString().split('T')[0] : null,
+      date: a.date ? new Date(a.date).toISOString().split('T')[0] : null,
     }));
 
     const progressData = {

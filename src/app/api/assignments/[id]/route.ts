@@ -1,6 +1,8 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, isValidObjectId, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import type { StudentAssignment } from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -11,6 +13,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Check if this is a student ID with queryParam for assignmentNumber
@@ -22,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Assume it's a student ID
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -30,7 +35,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // If looking for specific assignment
     if (assignmentNumber) {
       const num = parseInt(assignmentNumber);
-      const assignment = student.assignments?.find((a) => a.assignmentNumber === num);
+      const assignment = student.assignments?.find(
+        (a: StudentAssignment) => a.assignmentNumber === num
+      );
 
       if (!assignment) {
         return NextResponse.json(createResponse(404, 'Assignment not found for this student'), {
@@ -69,6 +76,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const assignmentNumber = searchParams.get('assignmentNumber');
@@ -91,13 +101,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json();
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
 
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
-    const assignmentIndex = student.assignments?.findIndex((a) => a.assignmentNumber === assignNum);
+    const assignmentIndex = student.assignments?.findIndex(
+      (a: StudentAssignment) => a.assignmentNumber === assignNum
+    );
 
     if (assignmentIndex === undefined || assignmentIndex < 0) {
       return NextResponse.json(createResponse(404, 'Assignment not found for this student'), {
@@ -141,6 +153,9 @@ export async function DELETE(
 ) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const assignmentNumber = searchParams.get('assignmentNumber');
@@ -162,14 +177,14 @@ export async function DELETE(
       return NextResponse.json(createResponse(400, 'Invalid student ID'), { status: 400 });
     }
 
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
     const originalLength = student.assignments?.length || 0;
     student.assignments =
-      student.assignments?.filter((a) => a.assignmentNumber !== assignNum) || [];
+      student.assignments?.filter((a: StudentAssignment) => a.assignmentNumber !== assignNum) || [];
 
     if (student.assignments.length === originalLength) {
       return NextResponse.json(createResponse(404, 'Assignment not found for this student'), {

@@ -12,12 +12,16 @@ import {
 import { UpdateStudentAssignmentSchema } from '@/lib/validators';
 import Student from '@/models/Student';
 import type { StudentAssignment } from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { Types } from 'mongoose';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -50,7 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build MongoDB aggregation pipeline to get assignments
-    const pipeline: any[] = [];
+    const pipeline: any[] = [{ $match: { ownerId: userId } }];
 
     // Match students by ID if specified
     if (studentId) {
@@ -107,7 +111,7 @@ export async function GET(request: NextRequest) {
     const total = countResult[0]?.total || 0;
 
     // Calculate stats
-    const statsPipeline: any[] = [];
+    const statsPipeline: any[] = [{ $match: { ownerId: userId } }];
     if (studentId) {
       statsPipeline.push({ $match: { _id: new Types.ObjectId(studentId) } });
     }
@@ -173,6 +177,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
 
@@ -189,7 +196,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Check if student exists
-    const student = await Student.findById(body.studentId);
+    const student = await Student.findOne({ _id: body.studentId, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -228,7 +235,7 @@ export async function POST(request: NextRequest) {
 
     logger.info('POST /api/assignments', {
       studentId: body.studentId,
-      assignmentNumber: validatedData.assignment,
+      assignmentNumber: validatedData.assignmentNumber,
     });
 
     const response = createResponse(201, 'Assignment created successfully', newAssignment);

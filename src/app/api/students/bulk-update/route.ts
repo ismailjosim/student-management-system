@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
 import { invalidateStudentCache } from '@/lib/cache';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -15,6 +16,9 @@ const BulkUpdateSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
     const validatedData = BulkUpdateSchema.parse(body);
@@ -27,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await Student.updateMany(
-      { _id: { $in: studentIds } },
+      { ownerId: userId, _id: { $in: studentIds } },
       { currentStatus: status }
     );
 

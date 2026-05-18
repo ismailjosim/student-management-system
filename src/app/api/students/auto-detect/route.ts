@@ -2,14 +2,18 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextResponse } from 'next/server';
 
 export async function POST() {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     // Get all students
-    const students = await Student.find().lean();
+    const students = await Student.find({ ownerId: userId }).lean();
 
     const updates: any[] = [];
     let updatedCount = 0;
@@ -55,7 +59,10 @@ export async function POST() {
 
         // Only update if status changed
         if (newStatus !== student.currentStatus) {
-          await Student.findByIdAndUpdate(student._id, { currentStatus: newStatus });
+          await Student.findOneAndUpdate(
+            { _id: student._id, ownerId: userId },
+            { currentStatus: newStatus }
+          );
           updates.push({
             studentId: student._id,
             studentName: student.name,

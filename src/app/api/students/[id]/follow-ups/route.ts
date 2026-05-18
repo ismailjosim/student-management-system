@@ -4,6 +4,7 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, getPaginationParams } from '@/lib/utils';
 import FollowUp from '@/models/FollowUp';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
@@ -14,6 +15,9 @@ import { ObjectId } from 'mongodb';
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -21,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Verify student exists
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -34,7 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { skip } = getPaginationParams(page, limit);
 
     // Build filter
-    const filter: any = { studentId: id };
+    const filter: any = { studentId: id, ownerId: userId };
     if (!includeCompleted) {
       filter.status = { $ne: 'completed' };
     }
@@ -47,12 +51,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Find next scheduled and last completed
     const nextScheduled = await FollowUp.findOne({
       studentId: id,
+      ownerId: userId,
       status: 'pending',
       date: { $gte: new Date() },
     }).sort({ date: 1 });
 
     const lastCompleted = await FollowUp.findOne({
       studentId: id,
+      ownerId: userId,
       status: 'completed',
     }).sort({ completedDate: -1 });
 

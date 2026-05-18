@@ -2,11 +2,15 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
     const { emails } = body;
@@ -20,6 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Find students by email
     const students = await Student.find({
+      ownerId: userId,
       email: { $in: normalizedEmails },
     }).select('_id email name');
 

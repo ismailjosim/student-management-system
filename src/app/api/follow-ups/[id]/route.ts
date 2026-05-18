@@ -4,12 +4,16 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError } from '@/lib/utils';
 import { FollowUpUpdateSchema } from '@/lib/validators';
 import FollowUp from '@/models/FollowUp';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { id } = await params;
 
@@ -17,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(createResponse(400, 'Invalid follow-up ID'), { status: 400 });
     }
 
-    const followUp = await FollowUp.findById(id).populate('studentId');
+    const followUp = await FollowUp.findOne({ _id: id, ownerId: userId }).populate('studentId');
 
     if (!followUp) {
       return NextResponse.json(createResponse(404, 'Follow-up not found'), { status: 404 });
@@ -37,6 +41,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { id } = await params;
 
@@ -48,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const validatedData = FollowUpUpdateSchema.parse(body);
 
-    const followUp = await FollowUp.findByIdAndUpdate(id, validatedData, {
+    const followUp = await FollowUp.findOneAndUpdate({ _id: id, ownerId: userId }, validatedData, {
       new: true,
       runValidators: true,
     }).populate('studentId');
@@ -83,6 +90,9 @@ export async function DELETE(
 ) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { id } = await params;
 
@@ -90,7 +100,7 @@ export async function DELETE(
       return NextResponse.json(createResponse(400, 'Invalid follow-up ID'), { status: 400 });
     }
 
-    const followUp = await FollowUp.findByIdAndDelete(id);
+    const followUp = await FollowUp.findOneAndDelete({ _id: id, ownerId: userId });
 
     if (!followUp) {
       return NextResponse.json(createResponse(404, 'Follow-up not found'), { status: 404 });

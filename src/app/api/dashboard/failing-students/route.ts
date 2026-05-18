@@ -1,11 +1,15 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     // Get query params for pagination
     const searchParams = request.nextUrl.searchParams;
@@ -15,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     // Get failing students (At Risk or Behind)
     const students = await Student.find({
+      ownerId: userId,
       currentStatus: { $in: ['Behind', 'At Risk'] },
     })
       .sort({ createdAt: -1 })
@@ -24,6 +29,7 @@ export async function GET(request: NextRequest) {
 
     // Get total count
     const totalCount = await Student.countDocuments({
+      ownerId: userId,
       currentStatus: { $in: ['Behind', 'At Risk'] },
     });
 

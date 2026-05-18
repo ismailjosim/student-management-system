@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 const formatAssignmentKey = (assignmentNumber: number) =>
@@ -19,6 +20,9 @@ const parseAssignmentNumber = (assignment: string | undefined) => {
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
     const { assignmentNumber } = body;
@@ -34,13 +38,13 @@ export async function POST(request: NextRequest) {
     const currentAssignment = formatAssignmentKey(assignmentNumber);
 
     await Settings.findOneAndUpdate(
-      {},
-      { currentAssignment },
+      { ownerId: userId },
+      { $set: { currentAssignment }, $setOnInsert: { ownerId: userId } },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
     // Get all students
-    const students = await Student.find().lean();
+    const students = await Student.find({ ownerId: userId }).lean();
 
     let completedCount = 0;
     let notCompletedCount = 0;
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
           previousStatus !== newStatus || updateData.lastCompletedAssignment !== undefined;
 
         if (shouldUpdate) {
-          await Student.findByIdAndUpdate(student._id, updateData);
+          await Student.findOneAndUpdate({ _id: student._id, ownerId: userId }, updateData);
           updatedCount++;
         }
 

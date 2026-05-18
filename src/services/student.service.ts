@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use server';
 
+import { headers } from 'next/headers';
+
+const getCookieHeader = async () => (await headers()).get('cookie') ?? '';
+
 export async function getAllStudentsService(page = 1, limit = 10, searchTerm = '') {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -16,6 +20,9 @@ export async function getAllStudentsService(page = 1, limit = 10, searchTerm = '
   const res = await fetch(`${baseUrl}/api/students?${params.toString()}`, {
     method: 'GET',
     cache: 'no-store',
+    headers: {
+      cookie: await getCookieHeader(),
+    },
   });
 
   if (!res.ok) {
@@ -29,6 +36,9 @@ export async function getSingleStudent(id: string) {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/students/${id}`, {
       cache: 'no-store',
+      headers: {
+        cookie: await getCookieHeader(),
+      },
     });
 
     if (!res.ok) {

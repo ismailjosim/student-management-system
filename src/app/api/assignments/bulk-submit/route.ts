@@ -4,11 +4,15 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, logger } from '@/lib/utils';
 import { AssignmentBulkSubmitSchema } from '@/lib/validators';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
     const validatedData = AssignmentBulkSubmitSchema.parse(body);
@@ -21,6 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Find all matching students
     const students = await Student.find({
+      ownerId: userId,
       email: { $in: normalizedEmails },
     });
 

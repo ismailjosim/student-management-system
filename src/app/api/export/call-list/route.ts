@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 import Student from '@/models/Student';
 import { connectDB } from '@/lib/mongodb';
 import { generateCallList, exportToExcel, generateExportFilename } from '@/lib/export';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 
 export async function GET() {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     // Fetch students with call logs, ordered by last call date
-    const students = await Student.find()
+    const students = await Student.find({ ownerId: userId })
       .populate('callLogs', 'date status')
       .lean()
       .sort({ 'callLogs.0.date': -1 });
@@ -17,7 +21,7 @@ export async function GET() {
     const callListData = generateCallList(students);
 
     // Export to Excel
-    const blob = exportToExcel(callListData, 'call-list');
+    const blob = exportToExcel(callListData);
     const buffer = await blob.arrayBuffer();
 
     // Create filename with date

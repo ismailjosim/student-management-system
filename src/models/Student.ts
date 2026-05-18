@@ -25,6 +25,7 @@ export interface StudentAssignment {
 
 export interface StudentDocument {
   _id?: string;
+  ownerId: string;
   // Basic Info
   name: string;
   email: string;
@@ -68,6 +69,11 @@ type StudentDocumentWithMongoose = StudentDocument & Document;
 
 const StudentSchema = new Schema<StudentDocumentWithMongoose>(
   {
+    ownerId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     // Basic Info
     name: {
       type: String,
@@ -77,7 +83,6 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
     email: {
       type: String,
       required: [true, 'Please provide an email'],
-      unique: true,
       lowercase: true,
       trim: true,
       match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email'],
@@ -184,7 +189,8 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
 );
 
 // Create indexes for optimal performance
-StudentSchema.index({ email: 1, currentStatus: 1 });
+StudentSchema.index({ ownerId: 1, email: 1 }, { unique: true });
+StudentSchema.index({ ownerId: 1, currentStatus: 1 });
 StudentSchema.index({ createdAt: -1 });
 
 export default mongoose.models.Student ||

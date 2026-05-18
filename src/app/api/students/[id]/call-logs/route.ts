@@ -11,6 +11,7 @@ import {
   invalidateFollowUpCache,
   invalidateStudentCache,
 } from '@/lib/cache';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
@@ -21,6 +22,9 @@ import { ObjectId } from 'mongodb';
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -28,7 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Verify student exists
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -40,13 +44,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { skip } = getPaginationParams(page, limit);
 
     const [callLogs, total] = await Promise.all([
-      CallLog.find({ studentId: id }).sort({ date: -1 }).skip(skip).limit(limit),
-      CallLog.countDocuments({ studentId: id }),
+      CallLog.find({ studentId: id, ownerId: userId }).sort({ date: -1 }).skip(skip).limit(limit),
+      CallLog.countDocuments({ studentId: id, ownerId: userId }),
     ]);
 
     // Calculate statistics
     const statusCounts = await CallLog.aggregate([
-      { $match: { studentId: new ObjectId(id) } },
+      { $match: { studentId: new ObjectId(id), ownerId: userId } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
@@ -99,6 +103,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -106,7 +113,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Verify student exists
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -117,21 +124,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const requestBody = { ...body, studentId: id };
     const validatedData = CallLogCreateSchema.parse(requestBody);
 
-    const callLog = new CallLog(validatedData);
+    const callLog = new CallLog({ ...validatedData, ownerId: userId });
     const saved = await callLog.save();
     await saved.populate('studentId');
 
     const contactedAt = validatedData.date || new Date();
 
-    await resolveOpenFollowUpsAfterCall(id, contactedAt);
+    await resolveOpenFollowUpsAfterCall(id, contactedAt, userId);
 
     // Auto-create the next follow-up after this call
-    await autoCreateFollowUp(saved._id.toString(), id);
+    await autoCreateFollowUp(saved._id.toString(), id, undefined, userId);
 
     // Update student's lastContactedAt
-    await Student.findByIdAndUpdate(id, {
-      lastContactedAt: contactedAt,
-    });
+    await Student.findOneAndUpdate({ _id: id, ownerId: userId }, { lastContactedAt: contactedAt });
 
     // Invalidate related caches
     await invalidateCallLogCache();

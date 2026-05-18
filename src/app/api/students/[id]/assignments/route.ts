@@ -12,6 +12,7 @@ import { UpdateStudentAssignmentSchema } from '@/lib/validators';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
 import type { StudentAssignment } from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 const parseAssignmentNumber = (assignment: string | undefined) => {
@@ -25,7 +26,8 @@ const parseAssignmentNumber = (assignment: string | undefined) => {
 const syncStudentProgressForAssignment = async (
   student: any,
   assignmentNumber: number,
-  status?: string
+  status: string | undefined,
+  ownerId: string
 ) => {
   if (status === 'SUBMITTED' || status === 'COMPLETED') {
     const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
@@ -36,7 +38,7 @@ const syncStudentProgressForAssignment = async (
     }
   }
 
-  const settings = await Settings.findOne({});
+  const settings = await Settings.findOne({ ownerId });
   const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
 
   if (currentAssignmentNumber !== assignmentNumber) {
@@ -56,6 +58,9 @@ const syncStudentProgressForAssignment = async (
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate ObjectId format
@@ -65,7 +70,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Check if student exists
-    const student = await Student.findById(id).lean();
+    const student = await Student.findOne({ _id: id, ownerId: userId }).lean();
     if (!student) {
       logger.info('GET /api/students/[id]/assignments - Student not found', { id });
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
@@ -118,6 +123,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate student ID format
@@ -126,7 +134,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Check if student exists
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -174,7 +182,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await syncStudentProgressForAssignment(
       student,
       validatedData.assignmentNumber,
-      newAssignment.status
+      newAssignment.status,
+      userId
     );
 
     await student.save();
@@ -207,6 +216,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate student ID format
@@ -214,7 +226,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(createResponse(400, 'Invalid student ID format'), { status: 400 });
     }
 
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -255,7 +267,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await syncStudentProgressForAssignment(
       student,
       validatedData.assignmentNumber,
-      validatedData.status
+      validatedData.status,
+      userId
     );
 
     await student.save();
@@ -295,6 +308,9 @@ export async function DELETE(
 ) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate student ID format
@@ -316,8 +332,8 @@ export async function DELETE(
       return NextResponse.json(createResponse(400, 'Invalid assignment number'), { status: 400 });
     }
 
-    const result = await Student.findByIdAndUpdate(
-      id,
+    const result = await Student.findOneAndUpdate(
+      { _id: id, ownerId: userId },
       { $pull: { assignments: { assignmentNumber: assignNum } } },
       { new: true }
     );

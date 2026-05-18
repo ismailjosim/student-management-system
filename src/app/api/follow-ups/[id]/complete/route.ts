@@ -6,6 +6,7 @@ import FollowUp from '@/models/FollowUp';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { FollowUpCompleteSchema } from '@/lib/validators';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 
 /**
  * PUT /api/follow-ups/[id]/complete
@@ -14,6 +15,9 @@ import { FollowUpCompleteSchema } from '@/lib/validators';
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -29,8 +33,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const completedDate = body.completedDate || new Date();
 
-    const followUp = await FollowUp.findByIdAndUpdate(
-      id,
+    const followUp = await FollowUp.findOneAndUpdate(
+      { _id: id, ownerId: userId },
       {
         status: 'completed',
         completedDate,

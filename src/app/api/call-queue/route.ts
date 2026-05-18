@@ -3,6 +3,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, getPaginationParams } from '@/lib/utils';
 import { getCallQueue } from '@/lib/follow-up-logic';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -13,6 +14,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
@@ -21,7 +25,7 @@ export async function GET(request: NextRequest) {
     const { skip } = getPaginationParams(page, limit);
 
     // Get call queue
-    const queue = await getCallQueue(limit);
+    const queue = await getCallQueue(limit, userId);
 
     // Apply pagination
     const paginatedQueue = queue.slice(skip, skip + limit);

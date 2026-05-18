@@ -6,19 +6,23 @@ import { CallLogUpdateSchema } from '@/lib/validators';
 import { calculateNextFollowUp } from '@/lib/follow-up-logic';
 import CallLog from '@/models/CallLog';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(createResponse(400, 'Invalid call log ID'), { status: 400 });
     }
 
-    const callLog = await CallLog.findById(id).populate('studentId');
+    const callLog = await CallLog.findOne({ _id: id, ownerId: userId }).populate('studentId');
 
     if (!callLog) {
       return NextResponse.json(createResponse(404, 'Call log not found'), { status: 404 });
@@ -38,6 +42,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -47,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json();
     const validatedData = CallLogUpdateSchema.parse(body);
 
-    const existingCallLog = await CallLog.findById(id);
+    const existingCallLog = await CallLog.findOne({ _id: id, ownerId: userId });
     if (!existingCallLog) {
       return NextResponse.json(createResponse(404, 'Call log not found'), { status: 404 });
     }
@@ -57,7 +64,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       validatedData.nextFollowUp = calculateNextFollowUp(validatedData.date);
     }
 
-    const callLog = await CallLog.findByIdAndUpdate(id, validatedData, {
+    const callLog = await CallLog.findOneAndUpdate({ _id: id, ownerId: userId }, validatedData, {
       new: true,
       runValidators: true,
     }).populate('studentId');
@@ -87,13 +94,16 @@ export async function DELETE(
 ) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(createResponse(400, 'Invalid call log ID'), { status: 400 });
     }
 
-    const callLog = await CallLog.findByIdAndDelete(id);
+    const callLog = await CallLog.findOneAndDelete({ _id: id, ownerId: userId });
 
     if (!callLog) {
       return NextResponse.json(createResponse(404, 'Call log not found'), { status: 404 });
@@ -102,11 +112,13 @@ export async function DELETE(
     // Update student's lastContactedAt if this was the most recent call
     const mostRecentCall = await CallLog.findOne({
       studentId: callLog.studentId,
+      ownerId: userId,
     }).sort({ date: -1 });
 
-    await Student.findByIdAndUpdate(callLog.studentId, {
-      lastContactedAt: mostRecentCall ? mostRecentCall.date : null,
-    });
+    await Student.findOneAndUpdate(
+      { _id: callLog.studentId, ownerId: userId },
+      { lastContactedAt: mostRecentCall ? mostRecentCall.date : null }
+    );
 
     const response = createResponse(200, 'Call log deleted successfully', callLog);
     return NextResponse.json(response);

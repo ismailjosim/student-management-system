@@ -4,53 +4,55 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/auth-client';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-function LoginContent() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
-  const errorFromUrl = searchParams.get('error');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    if (!email || !password) {
-      setError('Please enter email and password');
+    if (!name.trim() || !email.trim() || !password) {
+      setError('Please fill in all fields');
       setIsLoading(false);
       return;
     }
 
-    if (!email.includes('@')) {
-      setError('Please enter a valid email');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setIsLoading(false);
       return;
     }
 
-    await authClient.signIn.email(
-      { email, password },
+    await authClient.signUp.email(
+      {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+      },
       {
         onSuccess: () => {
-          toast.success('Login successful!');
-          router.push(callbackUrl);
+          toast.success('Account created successfully!');
+          router.push('/dashboard');
           router.refresh();
         },
         onError: (ctx) => {
-          const message = ctx.error.message || 'Login failed';
+          const message = ctx.error.message || 'Registration failed';
           setError(message);
           toast.error(message);
         },
       }
     );
+
     setIsLoading(false);
   };
 
@@ -59,11 +61,11 @@ function LoginContent() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground">MentorTrack</h1>
-          <p className="text-muted-foreground mt-2">Student Management System</p>
+          <p className="text-muted-foreground mt-2">Create your student workspace</p>
         </div>
 
         <div className="bg-card text-card-foreground border border-border rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-bold mb-6">Sign In</h2>
+          <h2 className="text-2xl font-bold mb-6">Create Account</h2>
 
           {error && (
             <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
@@ -71,17 +73,21 @@ function LoginContent() {
             </div>
           )}
 
-          {errorFromUrl && (
-            <div className="mb-4 p-4 bg-warning-soft border border-warning-border rounded-lg">
-              <p className="text-warning-foreground text-sm">
-                {errorFromUrl === 'unauthorized'
-                  ? 'You do not have permission to access this page'
-                  : 'An error occurred during login'}
-              </p>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium mb-1">
+                Name
+              </label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                className="h-10"
+                disabled={isLoading}
+              />
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-1">
                 Email Address
@@ -106,37 +112,25 @@ function LoginContent() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="At least 8 characters"
                 className="h-10"
                 disabled={isLoading}
               />
             </div>
 
             <Button type="submit" disabled={isLoading} className="w-full h-10">
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? 'Creating account...' : 'Create Account'}
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
-            <p className="text-sm font-medium mb-2">New here?</p>
-            <Link href="/auth/register" className="text-sm text-primary hover:underline">
-              Create an account
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link href="/auth/login" className="text-primary hover:underline">
+              Sign in
             </Link>
-          </div>
+          </p>
         </div>
-
-        <p className="text-center text-muted-foreground text-sm mt-8">
-          © 2026 MentorTrack. All rights reserved.
-        </p>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginContent />
-    </Suspense>
   );
 }

@@ -1,21 +1,31 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import Student from '@/models/Student';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     // Get total students
-    const totalStudents = await Student.countDocuments();
+    const totalStudents = await Student.countDocuments({ ownerId: userId });
 
     // For each assignment 1-10, count how many students have completed it
     const stats = [];
 
     for (let i = 1; i <= 10; i++) {
       const submittedCount = await Student.countDocuments({
-        lastCompletedAssignment: { $gte: i },
+        ownerId: userId,
+        assignments: {
+          $elemMatch: {
+            assignmentNumber: i,
+            status: { $in: ['SUBMITTED', 'COMPLETED'] },
+          },
+        },
       });
 
       const submissionRate =

@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import { getCallStatistics } from '@/lib/follow-up-logic';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextResponse } from 'next/server';
 
 /**
@@ -10,8 +11,11 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
-    const statistics = await getCallStatistics();
+    const statistics = await getCallStatistics(userId);
 
     const response = createResponse(200, 'Call statistics fetched successfully', statistics);
     return NextResponse.json(response);

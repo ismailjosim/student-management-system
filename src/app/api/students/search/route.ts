@@ -2,11 +2,15 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, getPaginationParams, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
 
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
     const ageMax = searchParams.get('ageMax');
 
     // Build dynamic filter
-    const filter: any = {};
+    const filter: any = { ownerId: userId };
 
     if (name) {
       filter.name = { $regex: name, $options: 'i' };

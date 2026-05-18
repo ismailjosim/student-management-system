@@ -1,5 +1,6 @@
 // src/proxy.ts
 
+import { getSessionCookie } from 'better-auth/cookies';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Public routes
@@ -13,22 +14,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ❌ AUTH DISABLED TEMPORARILY (for development)
-  // const session = await auth();
+  const sessionCookie = getSessionCookie(request);
 
-  // // Redirect unauthenticated users
-  // if (!session) {
-  //   return NextResponse.redirect(new URL('/auth/login', request.url));
-  // }
-
-  // // Admin route protection
-  // if (pathname.startsWith('/admin')) {
-  //   if (session.user?.role !== 'admin') {
-  //     return NextResponse.redirect(
-  //       new URL('/auth/error?error=unauthorized', request.url)
-  //     );
-  //   }
-  // }
+  if (!sessionCookie) {
+    const loginUrl = new URL('/auth/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return NextResponse.next();
 }

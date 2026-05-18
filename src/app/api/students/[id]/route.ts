@@ -14,11 +14,15 @@ import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
 import { invalidateStudentCache } from '@/lib/cache';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate ObjectId format
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(createResponse(400, 'Invalid student ID format'), { status: 400 });
     }
 
-    const student = await Student.findById(id).lean();
+    const student = await Student.findOne({ _id: id, ownerId: userId }).lean();
 
     if (!student) {
       logger.info('GET /api/students/[id] - Not found', { id });
@@ -36,8 +40,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Fetch all related data
     const [callLogs, followUps] = await Promise.all([
-      CallLog.find({ studentId: id }).sort({ date: -1 }).lean(),
-      FollowUp.find({ studentId: id }).sort({ date: 1 }).lean(),
+      CallLog.find({ studentId: id, ownerId: userId }).sort({ date: -1 }).lean(),
+      FollowUp.find({ studentId: id, ownerId: userId }).sort({ date: 1 }).lean(),
     ]);
 
     // Get assignments from embedded array
@@ -78,6 +82,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { id } = await params;
 
@@ -95,7 +102,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const sanitizedData = sanitizeInput(updateData);
     const validatedData = StudentUpdateSchema.parse(sanitizedData);
 
-    const student = await Student.findByIdAndUpdate(id, validatedData, {
+    const student = await Student.findOneAndUpdate({ _id: id, ownerId: userId }, validatedData, {
       new: true,
       runValidators: true,
     });
@@ -135,6 +142,9 @@ export async function DELETE(
 ) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate ObjectId format
@@ -143,7 +153,7 @@ export async function DELETE(
       return NextResponse.json(createResponse(400, 'Invalid student ID format'), { status: 400 });
     }
 
-    const student = await Student.findByIdAndDelete(id);
+    const student = await Student.findOneAndDelete({ _id: id, ownerId: userId });
 
     if (!student) {
       logger.info('DELETE /api/students/[id] - Not found', { id });
@@ -152,8 +162,8 @@ export async function DELETE(
 
     // Cascade delete related documents
     await Promise.all([
-      CallLog.deleteMany({ studentId: id }),
-      FollowUp.deleteMany({ studentId: id }),
+      CallLog.deleteMany({ studentId: id, ownerId: userId }),
+      FollowUp.deleteMany({ studentId: id, ownerId: userId }),
     ]);
 
     // Invalidate student-related caches

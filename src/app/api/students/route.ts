@@ -12,11 +12,15 @@ import { StudentCreateSchema } from '@/lib/validators';
 import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
 import { invalidateStudentCache } from '@/lib/cache';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -32,7 +36,7 @@ export async function GET(request: NextRequest) {
     const { skip } = getPaginationParams(page, limit);
 
     // Build query filter
-    const filter: any = {};
+    const filter: any = { ownerId: userId };
     const andConditions: any[] = [];
 
     if (search) {
@@ -111,7 +115,7 @@ export async function GET(request: NextRequest) {
     const enrichedStudents = await Promise.all(
       students.map(async (student: any) => {
         const assignmentCount = student.assignments?.length || 0;
-        const lastCall = await CallLog.findOne({ studentId: student._id })
+        const lastCall = await CallLog.findOne({ studentId: student._id, ownerId: userId })
           .sort({ date: -1 })
           .lean();
 
@@ -157,12 +161,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
     const sanitizedData = sanitizeInput(body);
     const validatedData = StudentCreateSchema.parse(sanitizedData);
 
-    const student = new Student(validatedData);
+    const student = new Student({ ...validatedData, ownerId: userId });
     await student.save();
 
     // Invalidate student-related caches

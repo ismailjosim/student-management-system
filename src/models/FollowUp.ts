@@ -4,6 +4,7 @@ export type FollowUpStatus = 'pending' | 'completed' | 'overdue';
 
 export interface FollowUpDocument {
   _id?: string;
+  ownerId: string;
   date: Date;
   note: string;
   status?: FollowUpStatus;
@@ -17,6 +18,11 @@ type FollowUpDocumentWithMongoose = FollowUpDocument & Document;
 
 const FollowUpSchema = new Schema<FollowUpDocumentWithMongoose>(
   {
+    ownerId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     date: {
       type: Date,
       required: [true, 'Follow-up date is required'],
@@ -52,8 +58,8 @@ const FollowUpSchema = new Schema<FollowUpDocumentWithMongoose>(
 );
 
 // Create indexes for optimal performance
-FollowUpSchema.index({ studentId: 1 });
-FollowUpSchema.index({ date: -1 });
+FollowUpSchema.index({ ownerId: 1, studentId: 1 });
+FollowUpSchema.index({ ownerId: 1, date: -1 });
 
 export default mongoose.models.FollowUp ||
   mongoose.model<FollowUpDocumentWithMongoose>('FollowUp', FollowUpSchema);

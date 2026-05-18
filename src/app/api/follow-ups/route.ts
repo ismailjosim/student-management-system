@@ -5,12 +5,16 @@ import { FollowUpCreateSchema } from '@/lib/validators';
 import { updateOverdueStatus } from '@/lib/follow-up-logic';
 import FollowUp from '@/models/FollowUp';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -23,10 +27,10 @@ export async function GET(request: NextRequest) {
     const { skip } = getPaginationParams(page, limit);
 
     // Update overdue status
-    await updateOverdueStatus();
+    await updateOverdueStatus(userId);
 
     // Build filter
-    const filter: any = {};
+    const filter: any = { ownerId: userId };
     if (studentId) {
       if (!ObjectId.isValid(studentId)) {
         return NextResponse.json(createResponse(400, 'Invalid student ID'), { status: 400 });
@@ -70,18 +74,22 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
     const validatedData = FollowUpCreateSchema.parse(body);
 
     // Verify student exists
-    const student = await Student.findById(validatedData.studentId);
+    const student = await Student.findOne({ _id: validatedData.studentId, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
     const followUp = new FollowUp({
       ...validatedData,
+      ownerId: userId,
       status: 'pending',
     });
     await followUp.save();

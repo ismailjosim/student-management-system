@@ -9,6 +9,7 @@ export type CallLogStatus =
 
 export interface CallLogDocument {
   _id?: string;
+  ownerId: string;
   date: Date;
   status: CallLogStatus;
   notes?: string;
@@ -25,6 +26,11 @@ type CallLogDocumentWithMongoose = CallLogDocument & Document;
 
 const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
   {
+    ownerId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     date: {
       type: Date,
       required: [true, 'Call date is required'],
@@ -66,8 +72,8 @@ const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
 );
 
 // Create indexes for optimal performance
-CallLogSchema.index({ studentId: 1 });
-CallLogSchema.index({ date: -1 });
+CallLogSchema.index({ ownerId: 1, studentId: 1 });
+CallLogSchema.index({ ownerId: 1, date: -1 });
 
 export default mongoose.models.CallLog ||
   mongoose.model<CallLogDocumentWithMongoose>('CallLog', CallLogSchema);

@@ -4,6 +4,7 @@ import { updateOverdueStatus } from '@/lib/follow-up-logic';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, getPaginationParams } from '@/lib/utils';
 import FollowUp from '@/models/FollowUp';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -14,6 +15,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
     const daysAhead = parseInt(searchParams.get('daysAhead') || '7');
@@ -21,7 +25,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
 
     // Update overdue status
-    await updateOverdueStatus();
+    await updateOverdueStatus(userId);
 
     const { skip } = getPaginationParams(page, limit);
 
@@ -31,6 +35,7 @@ export async function GET(request: NextRequest) {
 
     // Get upcoming follow-ups
     const upcomingFollowUps = await FollowUp.find({
+      ownerId: userId,
       date: { $gte: now, $lte: futureDate },
       status: 'pending',
     })
@@ -40,6 +45,7 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     const total = await FollowUp.countDocuments({
+      ownerId: userId,
       date: { $gte: now, $lte: futureDate },
       status: 'pending',
     });

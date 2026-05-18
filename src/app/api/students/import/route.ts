@@ -4,10 +4,14 @@ import Student from '@/models/Student';
 import { processStudentImportFile } from '@/lib/file-parser';
 import { connectDB } from '@/lib/mongodb';
 import { invalidateStudentCache } from '@/lib/cache';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -44,19 +48,21 @@ export async function POST(request: NextRequest) {
 
     // Check for duplicate emails in database
     const emails = fileData.validRows.map((r) => r.email);
-    const existingStudents = await Student.find({ email: { $in: emails } });
+    const existingStudents = await Student.find({ ownerId: userId, email: { $in: emails } });
     const existingEmails = existingStudents.map((s: any) => s.email);
 
     const toCreate = fileData.validRows.filter((row) => !existingEmails.includes(row.email));
     const toUpdate = fileData.validRows.filter((row) => existingEmails.includes(row.email));
 
     // Create new students
-    const created = await Student.insertMany(toCreate);
+    const created = await Student.insertMany(
+      toCreate.map((student) => ({ ...student, ownerId: userId }))
+    );
 
     // Update existing students
     let updated = 0;
     for (const student of toUpdate) {
-      await Student.updateOne({ email: student.email }, student, {
+      await Student.updateOne({ ownerId: userId, email: student.email }, student, {
         runValidators: true,
       });
       updated++;

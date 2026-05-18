@@ -1,11 +1,16 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, isValidObjectId, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import type { StudentAssignment } from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id: studentId } = await params;
 
     // Validate ObjectId format
@@ -38,7 +43,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    const student = await Student.findById(studentId);
+    const student = await Student.findOne({ _id: studentId, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
@@ -50,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Find or create the embedded assignment
     const assignmentIndex = student.assignments.findIndex(
-      (a) => a.assignmentNumber === assignmentNumber
+      (a: StudentAssignment) => a.assignmentNumber === assignmentNumber
     );
 
     if (assignmentIndex >= 0) {

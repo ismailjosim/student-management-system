@@ -6,16 +6,20 @@ import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
 import { DashboardStats } from '@/types';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const [students, callLogs, followUps] = await Promise.all([
-      Student.find().lean(),
-      CallLog.find(),
-      FollowUp.find(),
+      Student.find({ ownerId: userId }).lean(),
+      CallLog.find({ ownerId: userId }),
+      FollowUp.find({ ownerId: userId }),
     ]);
 
     // Calculate assignment stats from embedded assignments

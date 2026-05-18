@@ -6,12 +6,16 @@ import { CallLogCreateSchema, CallLogBatchSchema } from '@/lib/validators';
 import { autoCreateFollowUp, resolveOpenFollowUpsAfterCall } from '@/lib/follow-up-logic';
 import CallLog from '@/models/CallLog';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -25,7 +29,7 @@ export async function GET(request: NextRequest) {
     const { skip } = getPaginationParams(page, limit);
 
     // Build filter
-    const filter: any = {};
+    const filter: any = { ownerId: userId };
     if (studentId) filter.studentId = new ObjectId(studentId);
     if (status) filter.status = status;
     if (calledBy) filter.calledBy = calledBy;
@@ -75,6 +79,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
 
@@ -86,7 +93,7 @@ export async function POST(request: NextRequest) {
       for (const logData of validatedData.callLogs) {
         try {
           // Verify student exists
-          const student = await Student.findById(logData.studentId);
+          const student = await Student.findOne({ _id: logData.studentId, ownerId: userId });
           if (!student) {
             results.failed++;
             results.errors.push({
@@ -96,21 +103,22 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          const callLog = new CallLog(logData);
+          const callLog = new CallLog({ ...logData, ownerId: userId });
           const saved = await callLog.save();
           await saved.populate('studentId');
 
           const contactedAt = logData.date || new Date();
 
-          await resolveOpenFollowUpsAfterCall(logData.studentId, contactedAt);
+          await resolveOpenFollowUpsAfterCall(logData.studentId, contactedAt, userId);
 
           // Auto-create the next follow-up after this call
-          await autoCreateFollowUp(saved._id.toString(), logData.studentId);
+          await autoCreateFollowUp(saved._id.toString(), logData.studentId, undefined, userId);
 
           // Update student's lastContactedAt
-          await Student.findByIdAndUpdate(logData.studentId, {
-            lastContactedAt: contactedAt,
-          });
+          await Student.findOneAndUpdate(
+            { _id: logData.studentId, ownerId: userId },
+            { lastContactedAt: contactedAt }
+          );
 
           results.created++;
         } catch (err) {
@@ -127,26 +135,27 @@ export async function POST(request: NextRequest) {
     const validatedData = CallLogCreateSchema.parse(body);
 
     // Verify student exists
-    const student = await Student.findById(validatedData.studentId);
+    const student = await Student.findOne({ _id: validatedData.studentId, ownerId: userId });
     if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
-    const callLog = new CallLog(validatedData);
+    const callLog = new CallLog({ ...validatedData, ownerId: userId });
     const saved = await callLog.save();
     await saved.populate('studentId');
 
     const contactedAt = validatedData.date || new Date();
 
-    await resolveOpenFollowUpsAfterCall(validatedData.studentId, contactedAt);
+    await resolveOpenFollowUpsAfterCall(validatedData.studentId, contactedAt, userId);
 
     // Auto-create the next follow-up after this call
-    await autoCreateFollowUp(saved._id.toString(), validatedData.studentId);
+    await autoCreateFollowUp(saved._id.toString(), validatedData.studentId, undefined, userId);
 
     // Update student's lastContactedAt
-    await Student.findByIdAndUpdate(validatedData.studentId, {
-      lastContactedAt: contactedAt,
-    });
+    await Student.findOneAndUpdate(
+      { _id: validatedData.studentId, ownerId: userId },
+      { lastContactedAt: contactedAt }
+    );
 
     const response = createResponse(201, 'Call log created successfully', saved);
     return NextResponse.json(response, { status: 201 });

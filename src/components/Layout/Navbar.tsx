@@ -13,11 +13,11 @@ import {
   User,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
 import { APP_NAME } from '@/lib/constants';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
 import { ThemeToggler } from './ThemeToggler';
+import { authClient } from '@/lib/auth-client';
 
 const navLinks = [
   { label: 'Dashboard', href: PAGE_ROUTES.DASHBOARD, icon: LayoutDashboard },
@@ -28,9 +28,19 @@ const navLinks = [
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { data: session } = useSession();
+  const { data: session } = authClient.useSession();
   const [currentAssignment, setCurrentAssignment] = useState<string | null>(null);
   const [isLoadingAssignment, setIsLoadingAssignment] = useState(true);
+
+  const handleLogout = async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          window.location.href = '/auth/login';
+        },
+      },
+    });
+  };
 
   useEffect(() => {
     const fetchCurrentAssignment = async () => {
@@ -107,11 +117,11 @@ export function Navbar() {
                 <User className="w-4 h-4 text-muted-foreground" />
                 <div className="text-sm">
                   <p className="font-medium">{session.user.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{session.user.role}</p>
+                  <p className="text-xs text-muted-foreground">{session.user.email}</p>
                 </div>
               </div>
               <button
-                onClick={() => signOut({ callbackUrl: '/auth/login' })}
+                onClick={handleLogout}
                 className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title="Logout"
               >
@@ -163,15 +173,13 @@ export function Navbar() {
                     <User className="w-4 h-4 text-muted-foreground" />
                     <div className="text-sm">
                       <p className="font-medium">{session.user.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {session.user.role}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{session.user.email}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      signOut({ callbackUrl: '/auth/login' });
+                      handleLogout();
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                   >

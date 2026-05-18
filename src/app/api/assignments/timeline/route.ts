@@ -1,11 +1,15 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import { getSubmissionTimeline } from '@/lib/assignment-logic';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
@@ -30,7 +34,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const timeline = await getSubmissionTimeline(start, end);
+    const timeline = await getSubmissionTimeline(userId, start, end);
 
     // Filter by assignment number if provided
     const filteredTimeline = timeline;

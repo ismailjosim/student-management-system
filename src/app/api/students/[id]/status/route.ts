@@ -9,6 +9,7 @@ import {
 } from '@/lib/utils';
 import Student from '@/models/Student';
 import { invalidateStudentCache } from '@/lib/cache';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -20,6 +21,9 @@ const StatusUpdateSchema = z.object({
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const { id } = await params;
 
     // Validate ObjectId format
@@ -32,8 +36,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const validatedData = StatusUpdateSchema.parse(body);
     const { status } = validatedData;
 
-    const student = await Student.findByIdAndUpdate(
-      id,
+    const student = await Student.findOneAndUpdate(
+      { _id: id, ownerId: userId },
       { currentStatus: status },
       { new: true, runValidators: true }
     );

@@ -3,6 +3,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -17,6 +18,9 @@ const MentorshipBulkUpdateSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     const body = await request.json();
     const validatedData = MentorshipBulkUpdateSchema.parse(body);
@@ -28,6 +32,7 @@ export async function POST(request: NextRequest) {
 
     // Find all matching students
     const students = await Student.find({
+      ownerId: userId,
       email: { $in: normalizedEmails },
     }).lean();
 
@@ -58,9 +63,10 @@ export async function POST(request: NextRequest) {
       });
 
       // Update student's mentorshipJoiningStatus
-      await Student.findByIdAndUpdate(student._id, {
-        mentorshipJoiningStatus,
-      });
+      await Student.findOneAndUpdate(
+        { _id: student._id, ownerId: userId },
+        { mentorshipJoiningStatus }
+      );
       updatedCount++;
     }
 

@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Settings } from '@/models/Settings';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 
 export async function GET() {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
-    let settings = await Settings.findOne({});
+    let settings = await Settings.findOne({ ownerId: userId });
 
     // If no settings exist, create default one
     if (!settings) {
       settings = await Settings.create({
+        ownerId: userId,
         currentAssignment: 'A-01',
       });
     }
@@ -29,6 +34,9 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
     const body = await request.json();
 
     const { currentAssignment } = body;
@@ -40,10 +48,11 @@ export async function POST(request: Request) {
       );
     }
 
-    let settings = await Settings.findOne({});
+    let settings = await Settings.findOne({ ownerId: userId });
 
     if (!settings) {
       settings = await Settings.create({
+        ownerId: userId,
         currentAssignment,
       });
     } else {

@@ -237,14 +237,15 @@ export function validateStatusProgression(currentStatus: string, newStatus: stri
 /**
  * Calculate assignment statistics across all students
  */
-export async function calculateAssignmentStats(): Promise<any> {
+export async function calculateAssignmentStats(ownerId: string): Promise<any> {
   try {
     const assignmentStats: any[] = [];
 
     for (let i = 1; i <= 10; i++) {
       const stats = await Student.aggregate([
+        { $match: { ownerId } },
         { $unwind: '$assignments' },
-        { $match: { 'assignments.assignment': i } },
+        { $match: { 'assignments.assignmentNumber': i } },
         {
           $group: {
             _id: null,
@@ -277,6 +278,7 @@ export async function calculateAssignmentStats(): Promise<any> {
     }
 
     const overallStats = await Student.aggregate([
+      { $match: { ownerId } },
       { $unwind: { path: '$assignments', preserveNullAndEmptyArrays: false } },
       {
         $group: {
@@ -319,9 +321,14 @@ export async function calculateAssignmentStats(): Promise<any> {
 /**
  * Get submission timeline data
  */
-export async function getSubmissionTimeline(startDate?: Date, endDate?: Date): Promise<any> {
+export async function getSubmissionTimeline(
+  ownerId: string,
+  startDate?: Date,
+  endDate?: Date
+): Promise<any> {
   try {
     const pipeline: any[] = [
+      { $match: { ownerId } },
       { $unwind: { path: '$assignments', preserveNullAndEmptyArrays: false } },
       {
         $match: {
@@ -336,7 +343,7 @@ export async function getSubmissionTimeline(startDate?: Date, endDate?: Date): P
       if (endDate) dateMatch.$lte = endDate;
       pipeline.push({
         $match: {
-          'assignments.submittedDate': dateMatch,
+          'assignments.date': dateMatch,
         },
       });
     }
@@ -347,7 +354,7 @@ export async function getSubmissionTimeline(startDate?: Date, endDate?: Date): P
           $dateToString: {
             format: '%Y-%m-%d',
             date: {
-              $ifNull: ['$assignments.submittedDate', '$assignments.completedDate'],
+              $ifNull: ['$assignments.date', '$assignments.date'],
             },
           },
         },

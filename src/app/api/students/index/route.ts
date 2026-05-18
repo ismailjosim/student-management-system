@@ -1,11 +1,15 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+    const authResult = await requireCurrentUserId();
+    if (authResult.response) return authResult.response;
+    const userId = authResult.userId;
 
     // Get query params for pagination and filtering
     const searchParams = request.nextUrl.searchParams;
@@ -18,7 +22,7 @@ export async function GET(request: NextRequest) {
     const division = searchParams.get('division');
 
     // Build filter
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { ownerId: userId };
     if (search) {
       // If search contains @, treat as exact email match; otherwise, fuzzy search
       if (search.includes('@')) {
