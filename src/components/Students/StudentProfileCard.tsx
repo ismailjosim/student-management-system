@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AlertCircle,
   Briefcase,
   Check,
   Edit2,
@@ -178,9 +177,7 @@ export function StudentProfileCard({ student, onUpdate }: StudentProfileCardProp
 
             <span
               className={`inline-flex rounded border px-2.5 py-1 text-xs font-semibold ${
-                displayedData.mentorshipJoiningStatus
-                  ? 'border-green-200 bg-green-50 text-green-700'
-                  : 'border-red-200 bg-red-50 text-red-600'
+                displayedData.mentorshipJoiningStatus ? 'status-success' : 'status-danger'
               }`}
             >
               {displayedData.mentorshipJoiningStatus ? 'In Group' : 'Not in Group'}

@@ -24,31 +24,31 @@ const STATUS_OPTIONS: {
   {
     value: 'On Track',
     label: 'On Track',
-    color: 'bg-green-100 text-green-700 border-green-300',
+    color: 'status-success',
     icon: CheckCircle2,
   },
   {
     value: 'Behind',
     label: 'Behind',
-    color: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    color: 'status-warning',
     icon: TrendingDown,
   },
   {
     value: 'At Risk',
     label: 'At Risk',
-    color: 'bg-orange-100 text-orange-700 border-orange-300',
+    color: 'status-danger',
     icon: AlertCircle,
   },
   {
     value: 'Dropped',
     label: 'Dropped',
-    color: 'bg-red-100 text-red-700 border-red-300',
+    color: 'status-neutral',
     icon: Flag,
   },
   {
     value: 'Completed',
     label: 'Completed',
-    color: 'bg-blue-100 text-blue-700 border-blue-300',
+    color: 'status-info',
     icon: CheckCircle2,
   },
 ];
@@ -196,9 +196,9 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
         </div>
 
         {/* Auto-Detection Info */}
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-xs font-semibold text-blue-900 mb-2">Auto-Detection Rules:</p>
-          <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+        <div className="p-4 status-info rounded-lg border">
+          <p className="text-xs font-semibold mb-2">Auto-Detection Rules:</p>
+          <ul className="text-xs space-y-1 list-disc list-inside">
             <li>
               More than 2 released assignments not submitted → <strong>At Risk</strong>
             </li>
@@ -214,14 +214,14 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
 
         {/* Recommended Status */}
         {detectedStatus !== currentStatus && (
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs font-semibold text-amber-900 mb-3">
+          <div className="p-4 status-warning rounded-lg border">
+            <p className="text-xs font-semibold mb-3">
               Recommended Status: <strong>{detectedStatus}</strong>
             </p>
             <button
               onClick={() => handleStatusUpdate(detectedStatus as StudentStatus)}
               disabled={isUpdating}
-              className="w-full px-3 py-2 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50"
+              className="w-full px-3 py-2 bg-warning text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-colors disabled:opacity-50"
             >
               {isUpdating ? 'Updating...' : `Apply Recommended Status`}
             </button>
@@ -284,11 +284,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
                 <div
                   key={assignmentNum}
                   className={`flex items-center justify-center h-10 rounded border font-semibold text-xs transition-colors ${
-                    isCompleted
-                      ? 'bg-green-100 text-green-700 border-green-300'
-                      : isCurrent
-                        ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                        : 'bg-gray-100 text-gray-600 border-gray-300'
+                    isCompleted ? 'status-success' : isCurrent ? 'status-warning' : 'status-neutral'
                   }`}
                   title={
                     isCompleted ? 'Completed' : isCurrent ? 'Current Assignment' : 'Not Started'
@@ -300,11 +296,11 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            <span className="inline-block w-3 h-3 bg-green-100 border border-green-300 rounded mr-2" />
+            <span className="inline-block w-3 h-3 bg-success-soft border border-success-border rounded mr-2" />
             Completed &nbsp;
-            <span className="inline-block w-3 h-3 bg-yellow-100 border border-yellow-300 rounded mr-2" />
+            <span className="inline-block w-3 h-3 bg-warning-soft border border-warning-border rounded mr-2" />
             Current &nbsp;
-            <span className="inline-block w-3 h-3 bg-gray-100 border border-gray-300 rounded mr-2" />
+            <span className="inline-block w-3 h-3 bg-neutral-soft border border-neutral-border rounded mr-2" />
             Not Started
           </p>
         </div>

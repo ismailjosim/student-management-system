@@ -147,18 +147,18 @@ export function AssignmentChecklist({
                 onClick={() => handleAssignmentClick(a, num)}
                 className={cn(
                   'flex items-center justify-between px-5 py-3 text-sm transition-colors cursor-pointer',
-                  isDone ? 'bg-green-50/50 hover:bg-green-50' : 'hover:bg-muted/30'
+                  isDone ? 'bg-success-soft/70 hover:bg-success-soft' : 'hover:bg-muted/30'
                 )}
               >
                 <div className="flex items-center gap-3">
                   {isDone ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
                   ) : isPending ? (
                     <Clock className="w-4 h-4 text-amber-500 shrink-0" />
                   ) : (
                     <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
                   )}
-                  <span className={cn('font-medium', isDone && 'text-green-800')}>
+                  <span className={cn('font-medium', isDone && 'text-success-foreground')}>
                     Assignment {String(num).padStart(2, '0')}
                   </span>
                 </div>
@@ -166,9 +166,9 @@ export function AssignmentChecklist({
                   className={cn(
                     'text-xs font-semibold px-2 py-0.5 rounded',
                     isDone
-                      ? 'bg-green-100 text-green-700'
+                      ? 'status-success'
                       : isPending
-                        ? 'bg-amber-100 text-amber-700'
+                        ? 'status-warning'
                         : 'bg-muted text-muted-foreground'
                   )}
                 >
@@ -250,7 +250,7 @@ export function AssignmentChecklist({
               <button
                 onClick={handleRemove}
                 disabled={isLoading}
-                className="px-3 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-3 py-2 text-sm font-medium rounded-md bg-destructive text-destructive-foreground hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 <Trash2 className="w-4 h-4" />
@@ -263,7 +263,7 @@ export function AssignmentChecklist({
             disabled={
               isLoading || (selectedAssignment ? newStatus === selectedAssignment.status : false)
             }
-            className="px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
             Update

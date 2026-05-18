@@ -5,18 +5,17 @@ interface AssignmentCompletionStatsProps {
   students: StudentWithRelations[];
 }
 
-// 10 distinct colors for each assignment
-const ASSIGNMENT_COLORS = [
-  { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' }, // A-01
-  { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' }, // A-02
-  { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' }, // A-03
-  { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' }, // A-04
-  { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' }, // A-05
-  { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' }, // A-06
-  { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' }, // A-07
-  { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' }, // A-08
-  { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' }, // A-09
-  { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' }, // A-10
+const ASSIGNMENT_STYLES = [
+  'status-info',
+  'status-success',
+  'bg-secondary text-secondary-foreground border-border',
+  'status-warning',
+  'status-danger',
+  'bg-primary/10 text-primary border-primary/20',
+  'status-info',
+  'status-success',
+  'status-warning',
+  'bg-secondary text-secondary-foreground border-border',
 ];
 
 export function AssignmentCompletionStats({ students }: AssignmentCompletionStatsProps) {
@@ -30,7 +29,7 @@ export function AssignmentCompletionStats({ students }: AssignmentCompletionStat
       number: assignmentNum,
       completed: completedCount,
       percentage: students.length > 0 ? Math.round((completedCount / students.length) * 100) : 0,
-      color: ASSIGNMENT_COLORS[i],
+      style: ASSIGNMENT_STYLES[i],
     };
   });
 
@@ -46,19 +45,19 @@ export function AssignmentCompletionStats({ students }: AssignmentCompletionStat
       </div>
       <div className="p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-3">
-          {assignmentStats.map(({ number, completed, percentage, color }) => (
+          {assignmentStats.map(({ number, completed, percentage, style }) => (
             <div
               key={number}
-              className={`${color.bg} rounded-lg border ${color.border} shadow-sm p-4 hover:shadow-md transition-shadow text-center`}
+              className={`${style} rounded-lg border shadow-sm p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-md`}
             >
-              <p className={`text-xs font-semibold uppercase tracking-wider ${color.text} mb-3`}>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider">
                 A-{String(number).padStart(2, '0')}
               </p>
-              <p className={`text-3xl font-bold ${color.text} mb-1`}>{completed}</p>
-              <p className={`text-xs ${color.text} font-medium mb-2 opacity-75`}>
+              <p className="mb-1 text-3xl font-bold">{completed}</p>
+              <p className="mb-2 text-xs font-medium opacity-75">
                 student{completed !== 1 ? 's' : ''}
               </p>
-              <p className={`text-sm font-semibold ${color.text}`}>{percentage}%</p>
+              <p className="text-sm font-semibold">{percentage}%</p>
             </div>
           ))}
         </div>

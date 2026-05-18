@@ -3,7 +3,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, getPaginationParams } from '@/lib/utils';
 import { CallLogCreateSchema, CallLogBatchSchema } from '@/lib/validators';
-import { autoCreateFollowUp } from '@/lib/follow-up-logic';
+import { autoCreateFollowUp, resolveOpenFollowUpsAfterCall } from '@/lib/follow-up-logic';
 import CallLog from '@/models/CallLog';
 import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
@@ -100,12 +100,16 @@ export async function POST(request: NextRequest) {
           const saved = await callLog.save();
           await saved.populate('studentId');
 
-          // Auto-create follow-up
+          const contactedAt = logData.date || new Date();
+
+          await resolveOpenFollowUpsAfterCall(logData.studentId, contactedAt);
+
+          // Auto-create the next follow-up after this call
           await autoCreateFollowUp(saved._id.toString(), logData.studentId);
 
           // Update student's lastContactedAt
           await Student.findByIdAndUpdate(logData.studentId, {
-            lastContactedAt: new Date(),
+            lastContactedAt: contactedAt,
           });
 
           results.created++;
@@ -132,12 +136,16 @@ export async function POST(request: NextRequest) {
     const saved = await callLog.save();
     await saved.populate('studentId');
 
-    // Auto-create follow-up
+    const contactedAt = validatedData.date || new Date();
+
+    await resolveOpenFollowUpsAfterCall(validatedData.studentId, contactedAt);
+
+    // Auto-create the next follow-up after this call
     await autoCreateFollowUp(saved._id.toString(), validatedData.studentId);
 
     // Update student's lastContactedAt
     await Student.findByIdAndUpdate(validatedData.studentId, {
-      lastContactedAt: new Date(),
+      lastContactedAt: contactedAt,
     });
 
     const response = createResponse(201, 'Call log created successfully', saved);

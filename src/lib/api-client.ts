@@ -242,6 +242,10 @@ export const dashboardApi = {
     apiClient.get(`/api/dashboard/failing-students?page=${page}&limit=${limit}`, {
       cacheTags: [CACHE_TAGS.FAILING_STUDENTS],
     }),
+  getCallQueue: (page: number = 1, limit: number = 10) =>
+    apiClient.get(`/api/call-queue?page=${page}&limit=${limit}`, {
+      cacheStrategy: 'no-store',
+    }),
   getAssignmentStats: () =>
     apiClient.get('/api/dashboard/assignment-stats', {
       cacheTags: [CACHE_TAGS.SUBMISSION_DATA, CACHE_TAGS.DASHBOARD_STATS],

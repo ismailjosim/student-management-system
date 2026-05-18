@@ -84,6 +84,29 @@ export const autoCreateFollowUp = async (
 };
 
 /**
+ * A new call means the current queue item has been handled.
+ * Keep the call/follow-up history, but close any open follow-ups so the student
+ * no longer appears in the generated call queue until a future follow-up is due.
+ */
+export const resolveOpenFollowUpsAfterCall = async (
+  studentId: string,
+  completedDate = new Date()
+) => {
+  return FollowUp.updateMany(
+    {
+      studentId,
+      status: { $in: ['pending', 'overdue'] },
+    },
+    {
+      $set: {
+        status: 'completed',
+        completedDate,
+      },
+    }
+  );
+};
+
+/**
  * Check if follow-up is needed for a student
  * Returns true if:
  * - No calls made yet, OR
@@ -144,19 +167,23 @@ export const getCallQueue = async (limit: number = 50) => {
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Get students with overdue follow-ups
-    const overdueFollowUps = await FollowUp.find({
-      date: { $lt: now },
-      status: { $ne: 'completed' },
-    }).distinct('studentId');
-
-    // Get students not called in 7 days
+    // Students contacted recently are handled for now. Exclude them even if
+    // they still have historical overdue follow-ups in the database.
     const recentCallStudents = await CallLog.find({
       date: { $gte: sevenDaysAgo },
     }).distinct('studentId');
 
+    const recentCallStudentIds = recentCallStudents.map((id: any) => new ObjectId(id.toString()));
+
+    // Get students with overdue follow-ups
+    const overdueFollowUps = await FollowUp.find({
+      date: { $lt: now },
+      status: { $ne: 'completed' },
+      studentId: { $nin: recentCallStudentIds },
+    }).distinct('studentId');
+
     const notCalledInSevenDays = await Student.find({
-      _id: { $nin: recentCallStudents.map((id: any) => new ObjectId(id.toString())) },
+      _id: { $nin: recentCallStudentIds },
     }).limit(limit);
 
     // Combine and sort by priority (overdue first)

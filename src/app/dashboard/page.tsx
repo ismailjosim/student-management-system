@@ -103,9 +103,9 @@ export default function DashboardPage() {
         }
         setFailingLoading(false);
 
-        // Fetch call queue (students needing calls - At Risk and Behind)
+        // Fetch call queue (students who actually need calls)
         setCallQueueLoading(true);
-        const callQueueResponse = await dashboardApi.getFailingStudents(callQueuePage, 10);
+        const callQueueResponse = await dashboardApi.getCallQueue(callQueuePage, 10);
         if (callQueueResponse.error) {
           throw new Error(callQueueResponse.error);
         }
@@ -116,8 +116,8 @@ export default function DashboardPage() {
           'data' in callQueueResponse.data
         ) {
           setCallQueueStudents((callQueueResponse.data as any).data || []);
-          setCallQueueTotalPages((callQueueResponse.data as any).totalPages || 1);
-          setCallQueueTotalCount((callQueueResponse.data as any).total || 0);
+          setCallQueueTotalPages((callQueueResponse.data as any).pagination?.pages || 1);
+          setCallQueueTotalCount((callQueueResponse.data as any).pagination?.total || 0);
         }
         setCallQueueLoading(false);
 
@@ -166,12 +166,12 @@ export default function DashboardPage() {
       setFailingLoading(false);
 
       setCallQueueLoading(true);
-      const callQueueResponse = await dashboardApi.getFailingStudents(callQueuePage, 10);
+      const callQueueResponse = await dashboardApi.getCallQueue(callQueuePage, 10);
       if (callQueueResponse.data) {
         const queueData = (callQueueResponse.data as any).data || [];
         setCallQueueStudents(queueData);
-        setCallQueueTotalPages((callQueueResponse.data as any).totalPages || 1);
-        setCallQueueTotalCount((callQueueResponse.data as any).total || 0);
+        setCallQueueTotalPages((callQueueResponse.data as any).pagination?.pages || 1);
+        setCallQueueTotalCount((callQueueResponse.data as any).pagination?.total || 0);
       }
       setCallQueueLoading(false);
 

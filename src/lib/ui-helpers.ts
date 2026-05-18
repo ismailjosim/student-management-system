@@ -5,17 +5,17 @@ import type { CallLogStatus } from '@/interfaces/callLog.interface';
 export function getStatusBadgeClass(status: StudentStatus): string {
   switch (status) {
     case 'On Track':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'status-success';
     case 'Behind':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      return 'status-warning';
     case 'At Risk':
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'status-danger';
     case 'Dropped':
-      return 'bg-gray-100 text-gray-600 border-gray-200';
+      return 'status-neutral';
     case 'Completed':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'status-info';
     default:
-      return 'bg-gray-100 text-gray-600 border-gray-200';
+      return 'status-neutral';
   }
 }
 
@@ -53,16 +53,16 @@ export function getCallLogStatusLabel(status: CallLogStatus): string {
 export function getCallLogStatusClass(status: CallLogStatus): string {
   switch (status) {
     case 'RECEIVED':
-      return 'bg-green-100 text-green-800';
+      return 'status-success';
     case 'NOT_RECEIVED':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'status-warning';
     case 'PHONE_OFF':
     case 'SWITCHED_OFF':
-      return 'bg-red-100 text-red-800';
+      return 'status-danger';
     case 'FOREIGN_NUMBER':
-      return 'bg-purple-100 text-purple-800';
+      return 'bg-secondary text-secondary-foreground';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'status-neutral';
   }
 }
 

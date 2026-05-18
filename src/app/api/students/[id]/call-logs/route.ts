@@ -3,7 +3,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, getPaginationParams } from '@/lib/utils';
 import { CallLogCreateSchema } from '@/lib/validators';
-import { autoCreateFollowUp } from '@/lib/follow-up-logic';
+import { autoCreateFollowUp, resolveOpenFollowUpsAfterCall } from '@/lib/follow-up-logic';
 import CallLog from '@/models/CallLog';
 import Student from '@/models/Student';
 import {
@@ -121,12 +121,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const saved = await callLog.save();
     await saved.populate('studentId');
 
-    // Auto-create follow-up
+    const contactedAt = validatedData.date || new Date();
+
+    await resolveOpenFollowUpsAfterCall(id, contactedAt);
+
+    // Auto-create the next follow-up after this call
     await autoCreateFollowUp(saved._id.toString(), id);
 
     // Update student's lastContactedAt
     await Student.findByIdAndUpdate(id, {
-      lastContactedAt: new Date(),
+      lastContactedAt: contactedAt,
     });
 
     // Invalidate related caches

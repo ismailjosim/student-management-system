@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { Navbar } from '@/components/Layout/Navbar';
 import { Footer } from '@/components/Layout/Footer';
 import { AuthProvider } from '@/components/providers/AuthProvider';
+import { NextThemeProvider } from '@/components/providers/NextThemeProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -28,14 +29,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-muted/40">
-        <AuthProvider>
-          <Toaster position="top-center" />
-          <Navbar />
-          <main className="min-h-screen container mx-auto">{children}</main>
-          <Footer />
-        </AuthProvider>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col bg-background">
+        <NextThemeProvider>
+          <AuthProvider>
+            <Toaster position="top-center" />
+            <Navbar />
+            <main className="min-h-screen container mx-auto">{children}</main>
+            <Footer />
+          </AuthProvider>
+        </NextThemeProvider>
       </body>
     </html>
   );

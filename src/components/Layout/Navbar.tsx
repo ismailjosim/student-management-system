@@ -17,6 +17,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { APP_NAME } from '@/lib/constants';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
+import { ThemeToggler } from './ThemeToggler';
 
 const navLinks = [
   { label: 'Dashboard', href: PAGE_ROUTES.DASHBOARD, icon: LayoutDashboard },
@@ -85,19 +86,21 @@ export function Navbar() {
         </nav>
 
         {/* Current Assignment Badge */}
-        <div className="hidden md:flex px-3 py-1.5 bg-linear-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+        <div className="hidden md:flex px-3 py-1.5 bg-success-soft border border-success-border rounded-full items-center gap-2">
+          <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
           {isLoadingAssignment ? (
-            <div className="h-4 w-16 bg-gray-300 rounded animate-pulse" />
+            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           ) : (
-            <span className="text-xs font-semibold text-green-900">
+            <span className="text-xs font-semibold text-success-foreground">
               Current: <span className="font-bold">{currentAssignment}</span>
             </span>
           )}
         </div>
 
         {/* User Section */}
-        <div className="hidden items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ThemeToggler />
+
           {session?.user ? (
             <div className="hidden md:flex items-center gap-3">
               <div className="flex items-center gap-2">

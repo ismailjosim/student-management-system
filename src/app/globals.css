@@ -1,46 +1,180 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
+/* =========================
+   LIGHT THEME (Financial / Corporate Authority)
+========================= */
 :root {
-  --background: #ffffff;
+  --background: #f8fafc;
+  /* Crisp slate-tinted background */
   --foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --primary: #4f46e5;
-  --primary-foreground: #ffffff;
-  --border: #e2e8f0;
-  --accent: #f8fafc;
+  /* Deep charcoal for maximum text legibility */
+
   --card: #ffffff;
-  --destructive: #ef4444;
+  --card-foreground: #0f172a;
+
+  --border: #e2e8f0;
+
+  --primary: #0a2540;
+  /* Serious, authoritative corporate navy */
+  --primary-foreground: #ffffff;
+
+  --secondary: #f1f5f9;
+  /* Soft slate gray for backgrounds and large blocks */
+  --secondary-foreground: #1e293b;
+
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+
+  --accent: #b45309;
+  /* Premium amber/gold for critical elements */
+  --accent-foreground: #ffffff;
+
+  --hover: #1e3a8a;
+  /* Brightened corporate blue for mouse hovers */
+
+  --input: #cbd5e1;
+  --ring: #0a2540;
+
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --secondary: #06b6d4;
-  --secondary-foreground: #ffffff;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --info: #3b82f6;
-  --ring: #4f46e5;
+
+  --success: #16a34a;
+  --success-soft: #dcfce7;
+  --success-foreground: #166534;
+  --success-border: #bbf7d0;
+
+  --warning: #ca8a04;
+  --warning-soft: #fef9c3;
+  --warning-foreground: #854d0e;
+  --warning-border: #fde68a;
+
+  --info: #2563eb;
+  --info-soft: #dbeafe;
+  --info-foreground: #1e40af;
+  --info-border: #bfdbfe;
+
+  --danger-soft: #fee2e2;
+  --danger-foreground: #991b1b;
+  --danger-border: #fecaca;
+
+  --neutral-soft: #f4f4f5;
+  --neutral-foreground: #52525b;
+  --neutral-border: #e4e4e7;
+
   --font-geist-sans: var(--font-geist-sans);
   --font-geist-mono: var(--font-geist-mono);
 }
 
-@theme {
+/* =========================
+   DARK THEME (Premium Executive Night)
+========================= */
+.dark {
+  --background: #0b0f19;
+  /* Executive pitch black with a hint of dark navy */
+  --foreground: #f8fafc;
+
+  --card: #131a26;
+  /* Slightly raised dark blue-gray surfaces */
+  --card-foreground: #f8fafc;
+
+  --border: #1e293b;
+
+  --primary: #38bdf8;
+  /* Highly visible light blue for actionable text in dark mode */
+  --primary-foreground: #0f172a;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+
+  --accent: #f59e0b;
+  /* Bright amber gold for dark mode contrast */
+  --accent-foreground: #0f172a;
+
+  --hover: #0284c7;
+
+  --input: #1e293b;
+  --ring: #38bdf8;
+
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+
+  --success: #4ade80;
+  --success-soft: #052e16;
+  --success-foreground: #bbf7d0;
+  --success-border: #166534;
+
+  --warning: #facc15;
+  --warning-soft: #422006;
+  --warning-foreground: #fde68a;
+  --warning-border: #854d0e;
+
+  --info: #60a5fa;
+  --info-soft: #172554;
+  --info-foreground: #bfdbfe;
+  --info-border: #1d4ed8;
+
+  --danger-soft: #450a0a;
+  --danger-foreground: #fecaca;
+  --danger-border: #991b1b;
+
+  --neutral-soft: #27272a;
+  --neutral-foreground: #d4d4d8;
+  --neutral-border: #52525b;
+}
+
+@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-border: var(--border);
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-border: var(--border);
-  --color-accent: var(--accent);
-  --color-card: var(--card);
-  --color-input: var(--border);
-  --color-ring: var(--ring);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-hover: var(--hover);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-border: var(--success-border);
+
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-border: var(--warning-border);
+
   --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-border: var(--info-border);
+
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-border: var(--danger-border);
+
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-foreground: var(--neutral-foreground);
+  --color-neutral-border: var(--neutral-border);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -51,8 +185,12 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans transition-colors duration-300;
   }
 
   * {
@@ -66,7 +204,7 @@
   }
 
   .btn-primary {
-    @apply bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors;
+    @apply bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-hover transition-colors;
   }
 
   .card {
@@ -75,5 +213,25 @@
 
   .input-focus {
     @apply focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50;
+  }
+
+  .status-success {
+    @apply border-success-border bg-success-soft text-success-foreground;
+  }
+
+  .status-warning {
+    @apply border-warning-border bg-warning-soft text-warning-foreground;
+  }
+
+  .status-info {
+    @apply border-info-border bg-info-soft text-info-foreground;
+  }
+
+  .status-danger {
+    @apply border-danger-border bg-danger-soft text-danger-foreground;
+  }
+
+  .status-neutral {
+    @apply border-neutral-border bg-neutral-soft text-neutral-foreground;
   }
 }
