@@ -12,7 +12,7 @@ const SingleStudentPage = async ({ params }: SingleStudentPageProps) => {
   const student = singleStudentRes?.data;
 
   if (!singleStudentRes.success || !student) {
-    return <StudentNotFound />;
+    return <StudentNotFound message={singleStudentRes.error} />;
   }
 
   return <SingleStudentWrapper student={student} />;

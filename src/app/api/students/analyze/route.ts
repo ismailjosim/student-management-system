@@ -2,7 +2,19 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
+import { Settings } from '@/models/Settings';
 import { NextRequest, NextResponse } from 'next/server';
+
+const formatAssignmentKey = (assignmentNumber: number) =>
+  `A-${String(assignmentNumber).padStart(2, '0')}`;
+
+const parseAssignmentNumber = (assignment: string | undefined) => {
+  if (!assignment) return null;
+
+  const assignmentNumber = parseInt(assignment.split('-')[1], 10);
+
+  return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +30,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const currentAssignment = formatAssignmentKey(assignmentNumber);
+
+    await Settings.findOneAndUpdate(
+      {},
+      { currentAssignment },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
 
     // Get all students
     const students = await Student.find().lean();
@@ -37,49 +57,39 @@ export async function POST(request: NextRequest) {
 
         const isCompleted =
           assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
+        const previousStatus = student.currentStatus || 'On Track';
+        const newStatus = isCompleted ? 'On Track' : 'Behind';
+        const updateData: Record<string, string> = {
+          currentStatus: newStatus,
+        };
 
         if (isCompleted) {
           completedCount++;
+
+          const lastCompletedNumber = parseAssignmentNumber(student.lastCompletedAssignment);
+
+          if (!lastCompletedNumber || assignmentNumber > lastCompletedNumber) {
+            updateData.lastCompletedAssignment = currentAssignment;
+          }
         } else {
           notCompletedCount++;
-
-          // If assignment not completed, set status to 'Behind'
-          const currentStatus = student.currentStatus || 'On Track';
-          if (
-            currentStatus !== 'Behind' &&
-            currentStatus !== 'Dropped' &&
-            currentStatus !== 'Completed'
-          ) {
-            await Student.findByIdAndUpdate(student._id, { currentStatus: 'Behind' });
-            updatedCount++;
-
-            studentDetails.push({
-              id: student._id.toString(),
-              name: student.name,
-              completed: false,
-              previousStatus: currentStatus,
-              newStatus: 'Behind',
-            });
-          } else {
-            studentDetails.push({
-              id: student._id.toString(),
-              name: student.name,
-              completed: false,
-              previousStatus: currentStatus,
-              newStatus: currentStatus,
-            });
-          }
         }
 
-        if (isCompleted) {
-          studentDetails.push({
-            id: student._id.toString(),
-            name: student.name,
-            completed: true,
-            previousStatus: student.currentStatus || 'On Track',
-            newStatus: student.currentStatus || 'On Track',
-          });
+        const shouldUpdate =
+          previousStatus !== newStatus || updateData.lastCompletedAssignment !== undefined;
+
+        if (shouldUpdate) {
+          await Student.findByIdAndUpdate(student._id, updateData);
+          updatedCount++;
         }
+
+        studentDetails.push({
+          id: student._id.toString(),
+          name: student.name,
+          completed: isCompleted,
+          previousStatus,
+          newStatus,
+        });
       } catch (error) {
         logger.error(`Error processing student ${student._id}`, error);
         // Continue processing other students
@@ -96,6 +106,7 @@ export async function POST(request: NextRequest) {
     const result = {
       totalStudents: students.length,
       completedAssignment: assignmentNumber,
+      currentAssignment,
       completedCount,
       notCompletedCount,
       updatedCount,

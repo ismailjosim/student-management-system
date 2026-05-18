@@ -7,7 +7,6 @@ import { StudentsTable } from '@/components/Students/StudentsTable';
 import { SkeletonTable } from '@/components/Common/SkeletonLoader';
 import { FileUp, Plus, AlertCircle, Sparkles, X, Loader2 } from 'lucide-react';
 import { studentApi } from '@/lib/api-client';
-import { cache, CACHE_KEYS, CACHE_EXPIRY } from '@/lib/cache';
 import { PAGE_ROUTES } from '@/lib/constants';
 import type { StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
@@ -36,6 +35,9 @@ export default function StudentsPage() {
   const [totalStudents, setTotalStudents] = useState(0);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [progressFilter, setProgressFilter] = useState('');
+  const [groupFilter, setGroupFilter] = useState('');
+  const [deviceFilter, setDeviceFilter] = useState('');
   const [selectedAssignment, setSelectedAssignment] = useState<number>(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -67,24 +69,16 @@ export default function StudentsPage() {
         setLoading(true);
         setError(null);
 
-        // Try cache first if no search/filter (cache only works for base list)
-        let cachedData = null;
-        if (!search && !statusFilter && currentPage === 1) {
-          cachedData = cache.get<StudentWithRelations[]>(CACHE_KEYS.ALL_STUDENTS);
-          if (cachedData) {
-            setStudents(cachedData);
-            setTotalPages(Math.ceil(cachedData.length / PAGE_SIZE));
-            setTotalStudents(cachedData.length);
-            setLoading(false);
-            return;
-          }
-        }
-
         const response = await studentApi.getAllPaginated(
           currentPage,
           PAGE_SIZE,
           search,
-          statusFilter
+          statusFilter === 'all' ? '' : statusFilter,
+          {
+            device: deviceFilter === 'all' ? '' : deviceFilter,
+            group: groupFilter === 'all' ? '' : groupFilter,
+            progress: progressFilter === 'all' ? '' : progressFilter,
+          }
         );
 
         if (response.error) {
@@ -92,18 +86,15 @@ export default function StudentsPage() {
         }
 
         const data = response.data;
+        const pagination = (response as any).rawResponse?.pagination;
+        const updatePagination = (fallbackCount: number) => {
+          setTotalPages(pagination?.pages || Math.max(1, Math.ceil(fallbackCount / PAGE_SIZE)));
+          setTotalStudents(pagination?.total || fallbackCount);
+        };
 
         if (Array.isArray(data)) {
           setStudents(data);
-          // Extract pagination from rawResponse
-          if ((response as any).rawResponse?.pagination) {
-            setTotalPages((response as any).rawResponse.pagination.pages || 1);
-            setTotalStudents((response as any).rawResponse.pagination.total || 0);
-          }
-          // Cache only if no search/filter
-          if (!search && !statusFilter && currentPage === 1) {
-            cache.set(CACHE_KEYS.ALL_STUDENTS, data, CACHE_EXPIRY.LONG);
-          }
+          updatePagination(data.length);
         } else if (
           data &&
           typeof data === 'object' &&
@@ -111,15 +102,7 @@ export default function StudentsPage() {
           Array.isArray((data as any).data)
         ) {
           setStudents((data as any).data);
-          // Extract pagination from rawResponse
-          if ((response as any).rawResponse?.pagination) {
-            setTotalPages((response as any).rawResponse.pagination.pages || 1);
-            setTotalStudents((response as any).rawResponse.pagination.total || 0);
-          }
-          // Cache only if no search/filter
-          if (!search && !statusFilter && currentPage === 1) {
-            cache.set(CACHE_KEYS.ALL_STUDENTS, (data as any).data, CACHE_EXPIRY.LONG);
-          }
+          updatePagination((data as any).data.length);
         } else if (
           data &&
           typeof data === 'object' &&
@@ -128,17 +111,11 @@ export default function StudentsPage() {
           Array.isArray((data as any).data)
         ) {
           setStudents((data as any).data);
-          // Extract pagination from rawResponse
-          if ((response as any).rawResponse?.pagination) {
-            setTotalPages((response as any).rawResponse.pagination.pages || 1);
-            setTotalStudents((response as any).rawResponse.pagination.total || 0);
-          }
-          // Cache only if no search/filter
-          if (!search && !statusFilter && currentPage === 1) {
-            cache.set(CACHE_KEYS.ALL_STUDENTS, (data as any).data, CACHE_EXPIRY.LONG);
-          }
+          updatePagination((data as any).data.length);
         } else {
           setStudents([]);
+          setTotalPages(1);
+          setTotalStudents(0);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch students';
@@ -150,7 +127,7 @@ export default function StudentsPage() {
     };
 
     fetchStudents();
-  }, [currentPage, search, statusFilter]);
+  }, [currentPage, search, statusFilter, progressFilter, groupFilter, deviceFilter]);
 
   const handleSearchChange = (searchTerm: string) => {
     setSearch(searchTerm);
@@ -158,19 +135,51 @@ export default function StudentsPage() {
   };
 
   const handleStatusChange = (status: string) => {
-    setStatusFilter(status);
+    setStatusFilter(status === 'all' ? '' : status);
     setCurrentPage(1); // Reset to page 1 when filtering
+  };
+
+  const handleProgressChange = (progress: string) => {
+    setProgressFilter(progress === 'all' ? '' : progress);
+    setCurrentPage(1);
+  };
+
+  const handleGroupChange = (group: string) => {
+    setGroupFilter(group === 'all' ? '' : group);
+    setCurrentPage(1);
+  };
+
+  const handleDeviceChange = (device: string) => {
+    setDeviceFilter(device === 'all' ? '' : device);
+    setCurrentPage(1);
   };
 
   const handleResetFilters = () => {
     setSearch('');
     setStatusFilter('');
+    setProgressFilter('');
+    setGroupFilter('');
+    setDeviceFilter('');
     setCurrentPage(1);
   };
 
   const handleAnalyze = async () => {
     try {
       setIsAnalyzing(true);
+
+      const currentAssignment = `A-${String(selectedAssignment).padStart(2, '0')}`;
+
+      const settingsResponse = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentAssignment }),
+      });
+
+      if (!settingsResponse.ok) {
+        const data = await settingsResponse.json();
+        throw new Error(data.message || data.error || 'Failed to save current assignment');
+      }
+
       const response = await fetch(`/api/students/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -481,8 +490,14 @@ export default function StudentsPage() {
           isLoading={loading}
           search={search}
           onSearchChange={handleSearchChange}
-          statusFilter={statusFilter}
+          statusFilter={statusFilter || 'all'}
           onStatusFilterChange={handleStatusChange}
+          progressFilter={progressFilter || 'all'}
+          onProgressFilterChange={handleProgressChange}
+          groupFilter={groupFilter || 'all'}
+          onGroupFilterChange={handleGroupChange}
+          deviceFilter={deviceFilter || 'all'}
+          onDeviceFilterChange={handleDeviceChange}
           onResetFilters={handleResetFilters}
         />
       )}

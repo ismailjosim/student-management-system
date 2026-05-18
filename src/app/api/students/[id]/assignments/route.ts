@@ -10,8 +10,48 @@ import {
 } from '@/lib/utils';
 import { UpdateStudentAssignmentSchema } from '@/lib/validators';
 import Student from '@/models/Student';
+import { Settings } from '@/models/Settings';
 import type { StudentAssignment } from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
+
+const parseAssignmentNumber = (assignment: string | undefined) => {
+  if (!assignment) return null;
+
+  const assignmentNumber = parseInt(assignment.split('-')[1], 10);
+
+  return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
+};
+
+const syncStudentProgressForAssignment = async (
+  student: any,
+  assignmentNumber: number,
+  status?: string
+) => {
+  if (status === 'SUBMITTED' || status === 'COMPLETED') {
+    const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
+    const lastCompletedNumber = parseAssignmentNumber(student.lastCompletedAssignment);
+
+    if (!lastCompletedNumber || assignmentNumber > lastCompletedNumber) {
+      student.lastCompletedAssignment = assignmentKey;
+    }
+  }
+
+  const settings = await Settings.findOne({});
+  const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
+
+  if (currentAssignmentNumber !== assignmentNumber) {
+    return;
+  }
+
+  if (status === 'SUBMITTED' || status === 'COMPLETED') {
+    student.currentStatus = 'On Track';
+    return;
+  }
+
+  if (status === 'PENDING') {
+    student.currentStatus = 'Behind';
+  }
+};
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -32,15 +72,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Get embedded assignments
-    const assignments = student.assignments || [];
+    const assignments = (student.assignments || []) as StudentAssignment[];
 
     // Calculate statistics
     const totalSubmitted = assignments.filter(
-      (a) => a.status === 'SUBMITTED' || a.status === 'COMPLETED'
+      (assignment: StudentAssignment) =>
+        assignment.status === 'SUBMITTED' || assignment.status === 'COMPLETED'
     ).length;
 
-    const totalPending = assignments.filter((a) => a.status === 'PENDING').length;
-    const totalCompleted = assignments.filter((a) => a.status === 'COMPLETED').length;
+    const totalPending = assignments.filter(
+      (assignment: StudentAssignment) => assignment.status === 'PENDING'
+    ).length;
+    const totalCompleted = assignments.filter(
+      (assignment: StudentAssignment) => assignment.status === 'COMPLETED'
+    ).length;
 
     const percentageComplete = assignments.length > 0 ? (totalCompleted / 10) * 100 : 0;
 
@@ -93,7 +138,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Check for duplicate assignment
     const existing = student.assignments?.some(
-      (a) => a.assignmentNumber === validatedData.assignmentNumber
+      (assignment: StudentAssignment) =>
+        assignment.assignmentNumber === validatedData.assignmentNumber
     );
 
     if (existing) {
@@ -121,13 +167,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     student.assignments.push(newAssignment);
     // Keep sorted by assignment number
-    student.assignments.sort((a, b) => a.assignmentNumber - b.assignmentNumber);
+    student.assignments.sort(
+      (a: StudentAssignment, b: StudentAssignment) => a.assignmentNumber - b.assignmentNumber
+    );
+
+    await syncStudentProgressForAssignment(
+      student,
+      validatedData.assignmentNumber,
+      newAssignment.status
+    );
 
     await student.save();
 
     logger.info('POST /api/students/[id]/assignments', {
       studentId: id,
-      assignmentNumber: validatedData.assignment,
+      assignmentNumber: validatedData.assignmentNumber,
     });
 
     const response = createResponse(201, 'Assignment created successfully', newAssignment);
@@ -181,7 +235,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const assignmentIndex = student.assignments.findIndex(
-      (a) => a.assignmentNumber === validatedData.assignmentNumber
+      (assignment: StudentAssignment) =>
+        assignment.assignmentNumber === validatedData.assignmentNumber
     );
 
     if (assignmentIndex < 0) {
@@ -196,6 +251,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...validatedData,
       assignmentNumber: validatedData.assignmentNumber, // Keep original assignment number
     };
+
+    await syncStudentProgressForAssignment(
+      student,
+      validatedData.assignmentNumber,
+      validatedData.status
+    );
 
     await student.save();
 

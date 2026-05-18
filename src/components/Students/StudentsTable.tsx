@@ -19,6 +19,12 @@ interface StudentsTableProps {
   onSearchChange?: (search: string) => void;
   statusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
+  progressFilter?: string;
+  onProgressFilterChange?: (progress: string) => void;
+  groupFilter?: string;
+  onGroupFilterChange?: (group: string) => void;
+  deviceFilter?: string;
+  onDeviceFilterChange?: (device: string) => void;
   onResetFilters?: () => void;
 }
 
@@ -29,6 +35,28 @@ const STATUS_OPTIONS: { label: string; value: string }[] = [
   { label: 'At Risk', value: 'At Risk' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Dropped', value: 'Dropped' },
+];
+
+const PROGRESS_OPTIONS = [
+  { label: 'All Progress', value: 'all' },
+  ...Array.from({ length: 11 }, (_, progress) => ({
+    label: `${progress}/10`,
+    value: String(progress),
+  })),
+];
+
+const GROUP_OPTIONS = [
+  { label: 'All Groups', value: 'all' },
+  { label: 'In Group', value: 'in-group' },
+  { label: 'Missing', value: 'missing' },
+];
+
+const DEVICE_OPTIONS = [
+  { label: 'All Devices', value: 'all' },
+  { label: 'Laptop', value: 'Laptop' },
+  { label: 'Desktop', value: 'Desktop' },
+  { label: 'Mobile', value: 'Mobile' },
+  { label: 'No Device', value: 'none' },
 ];
 
 const PAGE_SIZE = 10;
@@ -44,12 +72,27 @@ export function StudentsTable({
   onSearchChange,
   statusFilter = 'all',
   onStatusFilterChange,
+  progressFilter = 'all',
+  onProgressFilterChange,
+  groupFilter = 'all',
+  onGroupFilterChange,
+  deviceFilter = 'all',
+  onDeviceFilterChange,
   onResetFilters,
 }: StudentsTableProps) {
   // Use provided state if callbacks exist, otherwise use local state
-  const hasExternalState = !!onSearchChange && !!onStatusFilterChange && !!onResetFilters;
+  const hasExternalState =
+    !!onSearchChange &&
+    !!onStatusFilterChange &&
+    !!onProgressFilterChange &&
+    !!onGroupFilterChange &&
+    !!onDeviceFilterChange &&
+    !!onResetFilters;
   const [localSearch, setLocalSearch] = useState('');
   const [localStatusFilter, setLocalStatusFilter] = useState('all');
+  const [localProgressFilter, setLocalProgressFilter] = useState('all');
+  const [localGroupFilter, setLocalGroupFilter] = useState('all');
+  const [localDeviceFilter, setLocalDeviceFilter] = useState('all');
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     studentId?: string;
@@ -61,6 +104,9 @@ export function StudentsTable({
 
   const effectiveSearch = hasExternalState ? search : localSearch;
   const effectiveStatusFilter = hasExternalState ? statusFilter : localStatusFilter;
+  const effectiveProgressFilter = hasExternalState ? progressFilter : localProgressFilter;
+  const effectiveGroupFilter = hasExternalState ? groupFilter : localGroupFilter;
+  const effectiveDeviceFilter = hasExternalState ? deviceFilter : localDeviceFilter;
 
   // Use server-side pagination if onPageChange is provided, otherwise use client-side
   const isServerPaginated = !!onPageChange;
@@ -81,10 +127,29 @@ export function StudentsTable({
 
       const matchStatus =
         effectiveStatusFilter === 'all' || s.currentStatus === effectiveStatusFilter;
+      const matchProgress =
+        effectiveProgressFilter === 'all' ||
+        getLastAssignmentNumber(s.lastCompletedAssignment) === Number(effectiveProgressFilter);
+      const matchGroup =
+        effectiveGroupFilter === 'all' ||
+        (effectiveGroupFilter === 'in-group' && s.mentorshipJoiningStatus) ||
+        (effectiveGroupFilter === 'missing' && !s.mentorshipJoiningStatus);
+      const matchDevice =
+        effectiveDeviceFilter === 'all' ||
+        (effectiveDeviceFilter === 'none' && !s.workingDevice) ||
+        s.workingDevice === effectiveDeviceFilter;
 
-      return matchSearch && matchStatus;
+      return matchSearch && matchStatus && matchProgress && matchGroup && matchDevice;
     });
-  }, [students, effectiveSearch, effectiveStatusFilter, isServerPaginated]);
+  }, [
+    students,
+    effectiveSearch,
+    effectiveStatusFilter,
+    effectiveProgressFilter,
+    effectiveGroupFilter,
+    effectiveDeviceFilter,
+    isServerPaginated,
+  ]);
 
   // Client-side pagination
   const clientTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -111,11 +176,38 @@ export function StudentsTable({
     }
   };
 
-  const handleFilter = (val: string) => {
+  const handleStatusFilter = (val: string) => {
     if (hasExternalState && onStatusFilterChange) {
       onStatusFilterChange(val);
     } else {
       setLocalStatusFilter(val);
+      setClientPage(1);
+    }
+  };
+
+  const handleProgressFilter = (val: string) => {
+    if (hasExternalState && onProgressFilterChange) {
+      onProgressFilterChange(val);
+    } else {
+      setLocalProgressFilter(val);
+      setClientPage(1);
+    }
+  };
+
+  const handleGroupFilter = (val: string) => {
+    if (hasExternalState && onGroupFilterChange) {
+      onGroupFilterChange(val);
+    } else {
+      setLocalGroupFilter(val);
+      setClientPage(1);
+    }
+  };
+
+  const handleDeviceFilter = (val: string) => {
+    if (hasExternalState && onDeviceFilterChange) {
+      onDeviceFilterChange(val);
+    } else {
+      setLocalDeviceFilter(val);
       setClientPage(1);
     }
   };
@@ -126,6 +218,9 @@ export function StudentsTable({
     } else {
       setLocalSearch('');
       setLocalStatusFilter('all');
+      setLocalProgressFilter('all');
+      setLocalGroupFilter('all');
+      setLocalDeviceFilter('all');
       setClientPage(1);
     }
   };
@@ -190,13 +285,49 @@ export function StudentsTable({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={effectiveProgressFilter}
+            onChange={(e) => handleProgressFilter(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            {PROGRESS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
           <select
             value={effectiveStatusFilter}
-            onChange={(e) => handleFilter(e.target.value)}
+            onChange={(e) => handleStatusFilter(e.target.value)}
             className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={effectiveGroupFilter}
+            onChange={(e) => handleGroupFilter(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            {GROUP_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={effectiveDeviceFilter}
+            onChange={(e) => handleDeviceFilter(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            {DEVICE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

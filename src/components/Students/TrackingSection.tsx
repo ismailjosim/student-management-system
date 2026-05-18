@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, TrendingDown, Zap, Flag } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 
 import type { StudentStatus } from '@/models/Student';
 import { studentApi } from '@/lib/api-client';
-import { getCurrentActiveAssignment } from '@/lib/date-utils';
 import toast from 'react-hot-toast';
 import { StudentAssignment } from '@/interfaces/assignment.interface';
 
@@ -57,46 +56,58 @@ const STATUS_OPTIONS: {
 export function TrackingSection({ student, assignments, onUpdate }: TrackingSectionProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [autoDetectMode, setAutoDetectMode] = useState(false);
+  const [currentAssignmentNumber, setCurrentAssignmentNumber] = useState(1);
+
+  useEffect(() => {
+    const fetchCurrentAssignment = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        const data = await response.json();
+        const currentAssignment = data?.data?.currentAssignment;
+
+        if (data?.success && currentAssignment) {
+          const assignmentNumber = parseInt(currentAssignment.split('-')[1], 10);
+
+          if (!Number.isNaN(assignmentNumber)) {
+            setCurrentAssignmentNumber(assignmentNumber);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch current assignment:', error);
+      }
+    };
+
+    fetchCurrentAssignment();
+  }, []);
+
+  const currentAssignment = assignments.find(
+    (assignment) => assignment.assignmentNumber === currentAssignmentNumber
+  );
+
+  const currentAssignmentSubmitted =
+    currentAssignment?.status === 'SUBMITTED' || currentAssignment?.status === 'COMPLETED';
 
   // Calculate auto-detected status
   const detectedStatus = useMemo(() => {
-    if (!assignments || assignments.length === 0) {
-      return student.currentStatus || 'On Track';
+    if (currentAssignmentSubmitted) {
+      return 'On Track';
     }
 
-    // Count incomplete assignments
-    const incompleteCount = assignments.filter(
-      (a) => a.status !== 'COMPLETED' && a.status !== 'SUBMITTED'
-    ).length;
+    const incompleteReleasedAssignments = Array.from(
+      { length: currentAssignmentNumber },
+      (_, index) => index + 1
+    ).filter((assignmentNumber) => {
+      const assignment = assignments.find((a) => a.assignmentNumber === assignmentNumber);
 
-    // If more than 2 assignments not completed → At Risk
-    if (incompleteCount > 2) {
+      return assignment?.status !== 'COMPLETED' && assignment?.status !== 'SUBMITTED';
+    }).length;
+
+    if (incompleteReleasedAssignments > 2) {
       return 'At Risk';
     }
 
-    // If current assignment not completed → Behind
-    // The current assignment is the next one after lastCompletedAssignment
-    const lastCompleted = student.lastCompletedAssignment;
-    if (lastCompleted && lastCompleted !== 'None') {
-      const lastCompletedNum = parseInt(lastCompleted.split('-')[1]);
-      const currentAssignmentNum = lastCompletedNum + 1;
-
-      // Check if current assignment exists and is not completed
-      const currentAssignment = assignments.find(
-        (a) => a.assignmentNumber === currentAssignmentNum
-      );
-
-      if (
-        currentAssignment &&
-        currentAssignment.status !== 'COMPLETED' &&
-        currentAssignment.status !== 'SUBMITTED'
-      ) {
-        return 'Behind';
-      }
-    }
-
-    return 'On Track';
-  }, [assignments, student.lastCompletedAssignment, student.currentStatus]);
+    return 'Behind';
+  }, [assignments, currentAssignmentNumber, currentAssignmentSubmitted]);
 
   const handleStatusUpdate = async (newStatus: StudentStatus) => {
     try {
@@ -124,18 +135,13 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
   const statusOption = STATUS_OPTIONS.find((opt) => opt.value === currentStatus);
   const StatusIcon = statusOption?.icon || CheckCircle2;
 
-  const lastCompletedNum = student.lastCompletedAssignment
-    ? parseInt(student.lastCompletedAssignment.split('-')[1] || '0')
-    : 0;
-  const currentAssignmentNum = lastCompletedNum + 1;
-
   const completedCount = assignments.filter(
-    (a) => a.status === 'COMPLETED' || a.status === 'SUBMITTED'
+    (a) =>
+      a.assignmentNumber <= currentAssignmentNumber &&
+      (a.status === 'COMPLETED' || a.status === 'SUBMITTED')
   ).length;
 
-  // Use the current active assignment (based on weeks) as the total for progress calculation
-  const currentActiveAssignment = getCurrentActiveAssignment();
-  const totalAssignments = currentActiveAssignment;
+  const totalAssignments = currentAssignmentNumber;
 
   return (
     <div className="bg-background border rounded-xl shadow-sm overflow-hidden">
@@ -182,7 +188,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
             <div className="p-4 bg-muted/30 rounded-lg border">
               <p className="text-xs text-muted-foreground mb-1">Current Assignment</p>
               <p className="text-2xl font-bold">
-                A-{String(currentAssignmentNum).padStart(2, '0')}
+                A-{String(currentAssignmentNumber).padStart(2, '0')}
               </p>
               <p className="text-xs text-muted-foreground mt-1">Target to complete</p>
             </div>
@@ -194,14 +200,14 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
           <p className="text-xs font-semibold text-blue-900 mb-2">Auto-Detection Rules:</p>
           <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
             <li>
-              More than 2 uncompleted assignments → <strong>At Risk</strong>
+              More than 2 released assignments not submitted → <strong>At Risk</strong>
             </li>
             <li>
-              Current assignment (A-{String(currentAssignmentNum).padStart(2, '0')}) not completed →{' '}
-              <strong>Behind</strong>
+              Current assignment (A-{String(currentAssignmentNumber).padStart(2, '0')}) not
+              submitted → <strong>Behind</strong>
             </li>
             <li>
-              All assignments on track → <strong>On Track</strong>
+              Current assignment submitted → <strong>On Track</strong>
             </li>
           </ul>
         </div>
@@ -272,7 +278,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
               const assignment = assignments.find((a) => a.assignmentNumber === assignmentNum);
               const isCompleted =
                 assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
-              const isCurrent = assignmentNum === currentAssignmentNum;
+              const isCurrent = assignmentNum === currentAssignmentNumber;
 
               return (
                 <div

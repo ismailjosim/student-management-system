@@ -109,15 +109,24 @@ export const studentApi = {
     page: number = 1,
     limit: number = 10,
     search: string = '',
-    status: string = ''
+    status: string = '',
+    filters: {
+      device?: string;
+      group?: string;
+      progress?: string;
+    } = {}
   ) => {
     const params = new URLSearchParams();
     params.set('page', page.toString());
     params.set('limit', limit.toString());
     if (search) params.set('search', search);
     if (status) params.set('status', status);
+    if (filters.progress) params.set('progress', filters.progress);
+    if (filters.group) params.set('group', filters.group);
+    if (filters.device) params.set('device', filters.device);
     // Only cache first page without filters
-    const shouldCache = page === 1 && !search && !status;
+    const shouldCache =
+      page === 1 && !search && !status && !filters.progress && !filters.group && !filters.device;
     return apiClient.get(`/api/students?${params.toString()}`, {
       cacheTags: shouldCache ? [CACHE_TAGS.STUDENT_LIST] : undefined,
     });

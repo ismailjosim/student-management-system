@@ -52,22 +52,29 @@ export function AssignmentChecklist({
       setIsLoading(true);
       let response;
 
-      // If assignment exists (has _id), update it
-      if (selectedAssignment._id) {
-        if (newStatus === 'SUBMITTED') {
-          response = await assignmentApi.submit(selectedAssignment._id);
-        } else if (newStatus === 'COMPLETED') {
-          response = await assignmentApi.complete(selectedAssignment._id);
+      const existingAssignment = assignments.some(
+        (assignment) => assignment.assignmentNumber === selectedAssignment.assignmentNumber
+      );
+
+      if (newStatus === 'NOT_DEFINED') {
+        if (existingAssignment) {
+          response = await assignmentApi.delete(_studentId, selectedAssignment.assignmentNumber);
         } else {
-          response = await assignmentApi.update(selectedAssignment._id, { status: newStatus });
+          setIsModalOpen(false);
+          return;
         }
       } else {
-        // If assignment is new, create it
-        response = await assignmentApi.create({
-          studentId: selectedAssignment.studentId,
+        const payload = {
           assignmentNumber: selectedAssignment.assignmentNumber,
           status: newStatus,
-        });
+          date: new Date(),
+        };
+
+        if (existingAssignment) {
+          response = await assignmentApi.update(_studentId, payload);
+        } else {
+          response = await assignmentApi.create(_studentId, payload);
+        }
       }
 
       if (response?.error) {
@@ -87,11 +94,11 @@ export function AssignmentChecklist({
   };
 
   const handleRemove = useCallback(async () => {
-    if (!selectedAssignment || !selectedAssignment._id) return;
+    if (!selectedAssignment) return;
 
     try {
       setIsLoading(true);
-      const response = await assignmentApi.delete(selectedAssignment._id);
+      const response = await assignmentApi.delete(_studentId, selectedAssignment.assignmentNumber);
 
       if (response?.error) {
         throw new Error(response.error);
@@ -106,7 +113,7 @@ export function AssignmentChecklist({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAssignment, onUpdate]);
+  }, [_studentId, selectedAssignment, onUpdate]);
 
   return (
     <>
@@ -217,11 +224,11 @@ export function AssignmentChecklist({
               </select>
             </div>
 
-            {selectedAssignment?.completedDate && (
+            {selectedAssignment?.date && (
               <div>
-                <p className="text-sm font-medium text-foreground">Completed Date</p>
+                <p className="text-sm font-medium text-foreground">Updated Date</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {new Date(selectedAssignment.completedDate).toLocaleDateString()}
+                  {new Date(selectedAssignment.date).toLocaleDateString()}
                 </p>
               </div>
             )}
@@ -236,23 +243,25 @@ export function AssignmentChecklist({
             Cancel
           </button>
 
-          {selectedAssignment?._id && (
-            <button
-              onClick={handleRemove}
-              disabled={isLoading}
-              className="px-3 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <Trash2 className="w-4 h-4" />
-              Remove
-            </button>
-          )}
+          {selectedAssignment &&
+            assignments.some(
+              (assignment) => assignment.assignmentNumber === selectedAssignment.assignmentNumber
+            ) && (
+              <button
+                onClick={handleRemove}
+                disabled={isLoading}
+                className="px-3 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                <Trash2 className="w-4 h-4" />
+                Remove
+              </button>
+            )}
 
           <button
             onClick={handleStatusChange}
             disabled={
-              isLoading ||
-              (selectedAssignment?._id ? newStatus === selectedAssignment.status : false)
+              isLoading || (selectedAssignment ? newStatus === selectedAssignment.status : false)
             }
             className="px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
           >

@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
+    const progress = searchParams.get('progress') || '';
+    const group = searchParams.get('group') || '';
+    const device = searchParams.get('device') || '';
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
 
@@ -30,6 +33,7 @@ export async function GET(request: NextRequest) {
 
     // Build query filter
     const filter: any = {};
+    const andConditions: any[] = [];
 
     if (search) {
       // If search contains @, treat as exact email match; otherwise, fuzzy search
@@ -46,6 +50,50 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       filter.currentStatus = status;
+    }
+
+    if (progress) {
+      const progressNumber = parseInt(progress, 10);
+
+      if (!Number.isNaN(progressNumber) && progressNumber >= 0 && progressNumber <= 10) {
+        if (progressNumber === 0) {
+          andConditions.push({
+            $or: [
+              { lastCompletedAssignment: 'None' },
+              { lastCompletedAssignment: null },
+              { lastCompletedAssignment: { $exists: false } },
+            ],
+          });
+        } else {
+          filter.lastCompletedAssignment = `A-${String(progressNumber).padStart(2, '0')}`;
+        }
+      }
+    }
+
+    if (group === 'in-group') {
+      filter.mentorshipJoiningStatus = true;
+    }
+
+    if (group === 'missing') {
+      andConditions.push({
+        $or: [{ mentorshipJoiningStatus: false }, { mentorshipJoiningStatus: { $exists: false } }],
+      });
+    }
+
+    if (device === 'none') {
+      andConditions.push({
+        $or: [
+          { workingDevice: '' },
+          { workingDevice: null },
+          { workingDevice: { $exists: false } },
+        ],
+      });
+    } else if (device) {
+      filter.workingDevice = device;
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     // Validate sortBy field
@@ -77,7 +125,16 @@ export async function GET(request: NextRequest) {
 
     const pages = Math.ceil(total / limit);
 
-    logger.info('GET /api/students', { page, limit, search, status, total });
+    logger.info('GET /api/students', {
+      page,
+      limit,
+      search,
+      status,
+      progress,
+      group,
+      device,
+      total,
+    });
 
     const response = createResponse(200, 'Students fetched successfully', enrichedStudents);
     return NextResponse.json(
