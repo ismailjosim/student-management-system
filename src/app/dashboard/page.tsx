@@ -1,14 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DashboardStats } from '@/components/Dashboard/DashboardStats';
 import { FailingStudentsTable } from '@/components/Dashboard/FailingStudentsTable';
 import { CallQueue } from '@/components/Dashboard/CallQueue';
 import { SubmissionDistribution } from '@/components/Dashboard/SubmissionDistribution';
 import { AssignmentCompletionStats } from '@/components/Dashboard/AssignmentCompletionStats';
 import { dashboardApi, studentApi } from '@/lib/api-client';
-import { cache, CACHE_KEYS, CACHE_EXPIRY } from '@/lib/cache';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import type { DashboardStats as DashboardStatsType, StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
@@ -32,115 +31,106 @@ export default function DashboardPage() {
   const [failingTotalCount, setFailingTotalCount] = useState(0);
   const [callQueueTotalCount, setCallQueueTotalCount] = useState(0);
 
+  const fetchOverviewData = useCallback(async () => {
+    const [statsResponse, allStudentsResponse] = await Promise.all([
+      dashboardApi.getStats(),
+      studentApi.getAllPaginated(1, 1000),
+    ]);
+
+    if (statsResponse.error) {
+      throw new Error(statsResponse.error);
+    }
+
+    if (statsResponse.data) {
+      setStats(statsResponse.data as DashboardStatsType);
+    }
+
+    if (allStudentsResponse.data) {
+      const data = Array.isArray(allStudentsResponse.data)
+        ? allStudentsResponse.data
+        : (allStudentsResponse.data as any).data || [];
+
+      setAllStudents(data);
+    }
+  }, []);
+
+  const fetchFailingStudents = useCallback(async () => {
+    try {
+      setFailingLoading(true);
+      const failingResponse = await dashboardApi.getFailingStudents(failingPage, 10);
+
+      if (failingResponse.error) {
+        throw new Error(failingResponse.error);
+      }
+
+      if (
+        failingResponse.data &&
+        typeof failingResponse.data === 'object' &&
+        'data' in failingResponse.data
+      ) {
+        setFailingStudents((failingResponse.data as any).data || []);
+        setFailingTotalPages((failingResponse.data as any).totalPages || 1);
+        setFailingTotalCount((failingResponse.data as any).total || 0);
+      }
+    } finally {
+      setFailingLoading(false);
+    }
+  }, [failingPage]);
+
+  const fetchCallQueue = useCallback(async () => {
+    try {
+      setCallQueueLoading(true);
+      const callQueueResponse = await dashboardApi.getCallQueue(callQueuePage, 10);
+
+      if (callQueueResponse.error) {
+        throw new Error(callQueueResponse.error);
+      }
+
+      if (
+        callQueueResponse.data &&
+        typeof callQueueResponse.data === 'object' &&
+        'data' in callQueueResponse.data
+      ) {
+        setCallQueueStudents((callQueueResponse.data as any).data || []);
+        setCallQueueTotalPages((callQueueResponse.data as any).pagination?.pages || 1);
+        setCallQueueTotalCount((callQueueResponse.data as any).pagination?.total || 0);
+      }
+    } finally {
+      setCallQueueLoading(false);
+    }
+  }, [callQueuePage]);
+
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const loadOverview = async () => {
       try {
         setError(null);
-        if (!refreshing) setLoading(true);
-
-        // Try to get cached stats first
-        let statsData: DashboardStatsType | null = null;
-        const cachedStats = cache.get<DashboardStatsType>(CACHE_KEYS.DASHBOARD_STATS);
-
-        if (cachedStats) {
-          statsData = cachedStats;
-        } else {
-          // Fetch stats from API
-          const statsResponse = await dashboardApi.getStats();
-          if (statsResponse.error) {
-            throw new Error(statsResponse.error);
-          }
-
-          if (statsResponse.data) {
-            statsData = statsResponse.data as DashboardStatsType;
-            // Cache the stats
-            cache.set(CACHE_KEYS.DASHBOARD_STATS, statsData, CACHE_EXPIRY.MEDIUM);
-          }
-        }
-
-        if (statsData) {
-          setStats(statsData);
-        }
-
-        // Try to get cached all students
-        let studentData: StudentWithRelations[] = [];
-        const cachedAllStudents = cache.get<StudentWithRelations[]>(CACHE_KEYS.ALL_STUDENTS);
-
-        if (cachedAllStudents) {
-          studentData = cachedAllStudents;
-        } else {
-          // Fetch all students for submission distribution
-          const allStudentsResponse = await studentApi.getAllPaginated(1, 1000);
-          if (allStudentsResponse.data) {
-            const data = Array.isArray(allStudentsResponse.data)
-              ? allStudentsResponse.data
-              : (allStudentsResponse.data as any).data || [];
-            studentData = data;
-            // Cache the students
-            cache.set(CACHE_KEYS.ALL_STUDENTS, studentData, CACHE_EXPIRY.LONG);
-          }
-        }
-
-        if (studentData.length > 0) {
-          setAllStudents(studentData);
-        }
-
-        // Fetch failing students (at risk) - don't cache pagination results
-        setFailingLoading(true);
-        const failingResponse = await dashboardApi.getFailingStudents(failingPage, 10);
-        if (failingResponse.error) {
-          throw new Error(failingResponse.error);
-        }
-
-        if (
-          failingResponse.data &&
-          typeof failingResponse.data === 'object' &&
-          'data' in failingResponse.data
-        ) {
-          setFailingStudents((failingResponse.data as any).data || []);
-          setFailingTotalPages((failingResponse.data as any).totalPages || 1);
-          setFailingTotalCount((failingResponse.data as any).total || 0);
-        }
-        setFailingLoading(false);
-
-        // Fetch call queue (students who actually need calls)
-        setCallQueueLoading(true);
-        const callQueueResponse = await dashboardApi.getCallQueue(callQueuePage, 10);
-        if (callQueueResponse.error) {
-          throw new Error(callQueueResponse.error);
-        }
-
-        if (
-          callQueueResponse.data &&
-          typeof callQueueResponse.data === 'object' &&
-          'data' in callQueueResponse.data
-        ) {
-          setCallQueueStudents((callQueueResponse.data as any).data || []);
-          setCallQueueTotalPages((callQueueResponse.data as any).pagination?.pages || 1);
-          setCallQueueTotalCount((callQueueResponse.data as any).pagination?.total || 0);
-        }
-        setCallQueueLoading(false);
-
+        setLoading(true);
+        await fetchOverviewData();
         setLastUpdated(new Date());
-        setError(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
         setError(message);
-        // Don't show error toast on initial load, use cached data if available
-        if (refreshing) {
-          toast.error(message);
-        }
       } finally {
         setLoading(false);
-        setRefreshing(false);
       }
     };
-    fetchDashboardData();
 
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(fetchDashboardData, 60000);
-    return () => clearInterval(interval);
-  }, [failingPage, callQueuePage, refreshing]);
+    loadOverview();
+  }, [fetchOverviewData]);
+
+  useEffect(() => {
+    fetchFailingStudents().catch((err) => {
+      const message = err instanceof Error ? err.message : 'Failed to fetch failing students';
+      setError(message);
+    });
+  }, [fetchFailingStudents]);
+
+  useEffect(() => {
+    fetchCallQueue().catch((err) => {
+      const message = err instanceof Error ? err.message : 'Failed to fetch call queue';
+      setError(message);
+    });
+  }, [fetchCallQueue]);
 
   const filteredFailingStudents =
     statusFilter === 'all'
@@ -150,31 +140,7 @@ export default function DashboardPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const statsResponse = await dashboardApi.getStats();
-      if (statsResponse.data) {
-        setStats(statsResponse.data as DashboardStatsType);
-      }
-
-      setFailingLoading(true);
-      const failingResponse = await dashboardApi.getFailingStudents(failingPage, 10);
-      if (failingResponse.data) {
-        const failingData = (failingResponse.data as any).data || [];
-        setFailingStudents(failingData);
-        setFailingTotalPages((failingResponse.data as any).totalPages || 1);
-        setFailingTotalCount((failingResponse.data as any).total || 0);
-      }
-      setFailingLoading(false);
-
-      setCallQueueLoading(true);
-      const callQueueResponse = await dashboardApi.getCallQueue(callQueuePage, 10);
-      if (callQueueResponse.data) {
-        const queueData = (callQueueResponse.data as any).data || [];
-        setCallQueueStudents(queueData);
-        setCallQueueTotalPages((callQueueResponse.data as any).pagination?.pages || 1);
-        setCallQueueTotalCount((callQueueResponse.data as any).pagination?.total || 0);
-      }
-      setCallQueueLoading(false);
-
+      await Promise.all([fetchOverviewData(), fetchFailingStudents(), fetchCallQueue()]);
       setLastUpdated(new Date());
       toast.success('Dashboard refreshed');
     } catch (

@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * GET /api/call-queue
  * Get auto-generated list of students who need calling
- * Priority: overdue follow-ups > not called in 7 days > pending assignments
+ * Priority: At Risk students > Behind students. Follow-up dates are metadata only.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
 
     const { skip } = getPaginationParams(page, limit);
 
-    // Get call queue
-    const queue = await getCallQueue(limit, userId);
+    // Get the full generated queue so pagination metadata stays accurate.
+    const queue = await getCallQueue(0, userId);
 
     // Apply pagination
     const paginatedQueue = queue.slice(skip, skip + limit);

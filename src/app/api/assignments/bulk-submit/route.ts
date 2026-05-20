@@ -4,8 +4,35 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, logger } from '@/lib/utils';
 import { AssignmentBulkSubmitSchema } from '@/lib/validators';
 import Student from '@/models/Student';
+import { Settings } from '@/models/Settings';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
+
+const parseAssignmentNumber = (assignment: string | undefined) => {
+  if (!assignment) return null;
+
+  const assignmentNumber = parseInt(assignment.split('-')[1], 10);
+
+  return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
+};
+
+const isAssignmentSubmitted = (assignment: any) =>
+  assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
+
+const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
+  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
+    const assignment = assignments.find((item) => item.assignmentNumber === assignmentNumber);
+
+    return !isAssignmentSubmitted(assignment);
+  }).length;
+
+const getStatusFromMissedCount = (missedCount: number) => {
+  if (missedCount === 0) return 'On Track';
+  if (missedCount === 1) return 'Behind';
+  return 'At Risk';
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +46,11 @@ export async function POST(request: NextRequest) {
 
     const { assignmentNumber, emails, submittedDate } = validatedData;
     const submissionDate = submittedDate || new Date();
+    const settings = await Settings.findOne({ ownerId: userId }).lean();
+    const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
 
     // Normalize emails to lowercase
-    const normalizedEmails = emails.map((email) => email.toLowerCase().trim());
+    const normalizedEmails = emails.map((email: string) => email.toLowerCase().trim());
 
     // Find all matching students
     const students = await Student.find({
@@ -92,6 +121,20 @@ export async function POST(request: NextRequest) {
         student.lastCompletedAssignment = assignmentKey;
       }
 
+      if (
+        currentAssignmentNumber &&
+        assignmentNumber <= currentAssignmentNumber &&
+        student.currentStatus !== 'Dropped' &&
+        student.currentStatus !== 'Completed'
+      ) {
+        const missedAssignmentCount = getMissedReleasedAssignmentCount(
+          student.assignments,
+          currentAssignmentNumber
+        );
+
+        student.currentStatus = getStatusFromMissedCount(missedAssignmentCount);
+      }
+
       // Save the updated student document
       await student.save();
     }
@@ -120,6 +163,8 @@ export async function POST(request: NextRequest) {
         successfulMatches: matchedStudents.length,
       },
     });
+
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateAssignment);
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {

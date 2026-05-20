@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import { requireCurrentUserId } from '@/lib/auth-utils';
+import { getCallQueue } from '@/lib/follow-up-logic';
 import Student from '@/models/Student';
 import { NextResponse } from 'next/server';
 
@@ -20,11 +21,8 @@ export async function GET() {
       currentStatus: { $in: ['Behind', 'At Risk'] },
     });
 
-    // Get students needing calls (check if they have pending follow-ups or haven't been called recently)
-    const studentsNeedingCalls = await Student.countDocuments({
-      ownerId: userId,
-      currentStatus: { $in: ['Behind', 'At Risk', 'On Track'] },
-    });
+    // Get students needing calls from the same rules used by /api/call-queue.
+    const studentsNeedingCalls = (await getCallQueue(0, userId)).length;
 
     // Get on-track students
     const onTrackStudents = await Student.countDocuments({

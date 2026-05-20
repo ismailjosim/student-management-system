@@ -2,9 +2,30 @@
 import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
 import Student from '@/models/Student';
-import { ObjectId } from 'mongodb';
+import { Settings } from '@/models/Settings';
 
 const FOLLOW_UP_DAYS = 7; // Default days for follow-up after a call
+
+const parseAssignmentNumber = (assignment: string | undefined | null) => {
+  if (!assignment) return 1;
+
+  const assignmentNumber = parseInt(assignment.split('-')[1], 10);
+
+  return Number.isNaN(assignmentNumber) ? 1 : assignmentNumber;
+};
+
+const isAssignmentSubmitted = (assignment: any) =>
+  assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
+
+const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
+  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
+    const assignment = assignments.find((item) => item.assignmentNumber === assignmentNumber);
+
+    return !isAssignmentSubmitted(assignment);
+  }).length;
+
+const getQueueStatusFromMissedCount = (missedCount: number) =>
+  missedCount >= 2 ? 'At Risk' : 'Behind';
 
 /**
  * Calculate next follow-up date from a given date
@@ -172,41 +193,39 @@ export const isFollowUpNeeded = async (studentId: string, ownerId: string): Prom
 export const getCallQueue = async (limit: number = 50, ownerId: string) => {
   try {
     const now = new Date();
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Students contacted recently are handled for now. Exclude them even if
-    // they still have historical overdue follow-ups in the database.
-    const recentCallStudents = await CallLog.find({
+    const settings = await Settings.findOne({ ownerId }).lean();
+    const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
+
+    const candidates = await Student.find({
       ownerId,
-      date: { $gte: sevenDaysAgo },
-    }).distinct('studentId');
-
-    const recentCallStudentIds = recentCallStudents.map((id: any) => new ObjectId(id.toString()));
-
-    // Get students with overdue follow-ups
-    const overdueFollowUps = await FollowUp.find({
-      ownerId,
-      date: { $lt: now },
-      status: { $ne: 'completed' },
-      studentId: { $nin: recentCallStudentIds },
-    }).distinct('studentId');
-
-    const notCalledInSevenDays = await Student.find({
-      ownerId,
-      _id: { $nin: recentCallStudentIds },
-    }).limit(limit);
-
-    // Combine and sort by priority (overdue first)
-    const students = await Student.find({
-      ownerId,
-      _id: {
-        $in: [
-          ...overdueFollowUps.map((id: any) => new ObjectId(id.toString())),
-          ...notCalledInSevenDays.map((s: any) => s._id),
-        ],
+      currentStatus: {
+        $nin: ['Dropped', 'Completed'],
       },
-    }).limit(limit);
+    });
+
+    const students = candidates.filter((student: any) => {
+      const currentAssignment = student.assignments?.find(
+        (assignment: any) => assignment.assignmentNumber === currentAssignmentNumber
+      );
+
+      return !isAssignmentSubmitted(currentAssignment);
+    });
+
+    await Promise.all(
+      students.map(async (student: any) => {
+        const missedCount = getMissedReleasedAssignmentCount(
+          student.assignments,
+          currentAssignmentNumber
+        );
+        const nextStatus = getQueueStatusFromMissedCount(missedCount);
+
+        if (student.currentStatus !== nextStatus) {
+          student.currentStatus = nextStatus;
+          await student.save();
+        }
+      })
+    );
 
     // Enrich with last call and follow-up info
     const queue = await Promise.all(
@@ -231,18 +250,33 @@ export const getCallQueue = async (limit: number = 50, ownerId: string) => {
           lastCall,
           nextFollowUp,
           overdueFollowUp,
-          priority: overdueFollowUp ? 'high' : 'normal',
+          currentAssignmentNumber,
+          missedAssignmentCount: getMissedReleasedAssignmentCount(
+            student.assignments,
+            currentAssignmentNumber
+          ),
+          priority: student.currentStatus === 'At Risk' ? 'high' : 'normal',
         };
       })
     );
 
-    // Sort by priority and date
-    return queue.sort((a, b) => {
+    const sortedQueue = queue.sort((a, b) => {
       if (a.priority !== b.priority) {
         return a.priority === 'high' ? -1 : 1;
       }
-      return (b.lastCall?.date || 0) - (a.lastCall?.date || 0);
+
+      const overdueDiff =
+        new Date(a.overdueFollowUp?.date || 0).getTime() -
+        new Date(b.overdueFollowUp?.date || 0).getTime();
+
+      if (overdueDiff !== 0) {
+        return overdueDiff;
+      }
+
+      return new Date(a.lastCall?.date || 0).getTime() - new Date(b.lastCall?.date || 0).getTime();
     });
+
+    return limit > 0 ? sortedQueue.slice(0, limit) : sortedQueue;
   } catch (error) {
     throw new Error(`Failed to get call queue: ${error}`);
   }

@@ -12,6 +12,8 @@ import { UpdateStudentAssignmentSchema } from '@/lib/validators';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
 import type { StudentAssignment } from '@/models/Student';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -21,6 +23,22 @@ const parseAssignmentNumber = (assignment: string | undefined) => {
   const assignmentNumber = parseInt(assignment.split('-')[1], 10);
 
   return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
+};
+
+const isAssignmentSubmitted = (assignment: any) =>
+  assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
+
+const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
+  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
+    const assignment = assignments.find((item) => item.assignmentNumber === assignmentNumber);
+
+    return !isAssignmentSubmitted(assignment);
+  }).length;
+
+const getStatusFromMissedCount = (missedCount: number) => {
+  if (missedCount === 0) return 'On Track';
+  if (missedCount === 1) return 'Behind';
+  return 'At Risk';
 };
 
 const syncStudentProgressForAssignment = async (
@@ -41,18 +59,20 @@ const syncStudentProgressForAssignment = async (
   const settings = await Settings.findOne({ ownerId });
   const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
 
-  if (currentAssignmentNumber !== assignmentNumber) {
+  if (!currentAssignmentNumber || assignmentNumber > currentAssignmentNumber) {
     return;
   }
 
-  if (status === 'SUBMITTED' || status === 'COMPLETED') {
-    student.currentStatus = 'On Track';
+  if (student.currentStatus === 'Dropped' || student.currentStatus === 'Completed') {
     return;
   }
 
-  if (status === 'PENDING') {
-    student.currentStatus = 'Behind';
-  }
+  const missedAssignmentCount = getMissedReleasedAssignmentCount(
+    student.assignments,
+    currentAssignmentNumber
+  );
+
+  student.currentStatus = getStatusFromMissedCount(missedAssignmentCount);
 };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -187,6 +207,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     );
 
     await student.save();
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateAssignment);
 
     logger.info('POST /api/students/[id]/assignments', {
       studentId: id,
@@ -272,6 +293,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     );
 
     await student.save();
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateAssignment);
 
     logger.info('PUT /api/students/[id]/assignments', {
       studentId: id,
@@ -332,15 +354,20 @@ export async function DELETE(
       return NextResponse.json(createResponse(400, 'Invalid assignment number'), { status: 400 });
     }
 
-    const result = await Student.findOneAndUpdate(
-      { _id: id, ownerId: userId },
-      { $pull: { assignments: { assignmentNumber: assignNum } } },
-      { new: true }
-    );
+    const student = await Student.findOne({ _id: id, ownerId: userId });
 
-    if (!result) {
+    if (!student) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
+
+    student.assignments =
+      student.assignments?.filter(
+        (assignment: StudentAssignment) => assignment.assignmentNumber !== assignNum
+      ) || [];
+
+    await syncStudentProgressForAssignment(student, assignNum, undefined, userId);
+    await student.save();
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateAssignment);
 
     logger.info('DELETE /api/students/[id]/assignments', {
       studentId: id,

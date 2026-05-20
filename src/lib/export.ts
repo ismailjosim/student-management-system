@@ -50,16 +50,20 @@ export function exportToCSV(data: Record<string, unknown>[]): Blob {
  */
 export function generateCallList(students: StudentWithRelations[]): Record<string, any>[] {
   return students.map((student) => ({
-    name: student.name,
-    email: student.email,
-    phone: student.phone,
-    whatsapp: student.whatsapp || '',
-    lastCalled: (student as any).callLogs?.[0]?.date
+    Name: student.name,
+    Email: student.email,
+    Phone: student.phone,
+    WhatsApp: student.whatsapp || '',
+    Status: student.currentStatus || 'On Track',
+    Progress: student.lastCompletedAssignment || 'None',
+    Division: student.division || '',
+    District: student.district || '',
+    Institute: student.institute || '',
+    Device: student.workingDevice || '',
+    Group: student.mentorshipJoiningStatus ? 'In Group' : 'Missing',
+    'Last Called': (student as any).callLogs?.[0]?.date
       ? new Date((student as any).callLogs[0].date).toLocaleDateString()
       : '',
-    currentStatus: student.currentStatus || 'On Track',
-    division: student.division || '',
-    institute: student.institute || '',
   }));
 }
 

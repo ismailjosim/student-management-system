@@ -6,7 +6,7 @@
  */
 import 'server-only';
 import { revalidateTag, revalidatePath as nextRevalidatePath } from 'next/cache';
-import { CACHE_CONFIG, CACHE_REVALIDATION_TRIGGERS, CACHE_TAGS } from './cache-config';
+import { CACHE_CONFIG, CACHE_REVALIDATION_TRIGGERS } from './cache-config';
 
 /**
  * Revalidate a single cache tag

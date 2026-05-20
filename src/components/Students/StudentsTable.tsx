@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, RefreshCw, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, Eye, Trash2, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { getStatusBadgeClass, getLastAssignmentNumber } from '@/lib/ui-helpers';
@@ -26,6 +26,8 @@ interface StudentsTableProps {
   deviceFilter?: string;
   onDeviceFilterChange?: (device: string) => void;
   onResetFilters?: () => void;
+  onExportFiltered?: () => void;
+  isExporting?: boolean;
 }
 
 const STATUS_OPTIONS: { label: string; value: string }[] = [
@@ -79,6 +81,8 @@ export function StudentsTable({
   deviceFilter = 'all',
   onDeviceFilterChange,
   onResetFilters,
+  onExportFiltered,
+  isExporting = false,
 }: StudentsTableProps) {
   // Use provided state if callbacks exist, otherwise use local state
   const hasExternalState =
@@ -107,6 +111,12 @@ export function StudentsTable({
   const effectiveProgressFilter = hasExternalState ? progressFilter : localProgressFilter;
   const effectiveGroupFilter = hasExternalState ? groupFilter : localGroupFilter;
   const effectiveDeviceFilter = hasExternalState ? deviceFilter : localDeviceFilter;
+  const hasActiveFilters =
+    !!effectiveSearch ||
+    effectiveStatusFilter !== 'all' ||
+    effectiveProgressFilter !== 'all' ||
+    effectiveGroupFilter !== 'all' ||
+    effectiveDeviceFilter !== 'all';
 
   // Use server-side pagination if onPageChange is provided, otherwise use client-side
   const isServerPaginated = !!onPageChange;
@@ -341,6 +351,18 @@ export function StudentsTable({
           >
             <RefreshCw className="w-4 h-4 text-muted-foreground" />
           </button>
+
+          {onExportFiltered && hasActiveFilters && (
+            <button
+              onClick={onExportFiltered}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+              title="Export filtered call sheet"
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? 'Exporting...' : 'Export'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -374,7 +396,42 @@ export function StudentsTable({
           </thead>
 
           <tbody className="divide-y divide-border">
-            {paginated.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: PAGE_SIZE }).map((_, index) => (
+                <tr key={`student-row-skeleton-${index}`}>
+                  <td className="px-6 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+                      <div className="space-y-2">
+                        <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+                        <div className="h-3 w-44 rounded bg-muted animate-pulse" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="space-y-2 w-28">
+                      <div className="h-3 w-20 rounded bg-muted animate-pulse" />
+                      <div className="h-1.5 w-28 rounded-full bg-muted animate-pulse" />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-5 w-16 rounded bg-muted animate-pulse" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-5 w-16 rounded bg-muted animate-pulse" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-20 rounded bg-muted animate-pulse" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+                  </td>
+                  <td className="px-6 py-3">
+                    <div className="ml-auto h-8 w-20 rounded bg-muted animate-pulse" />
+                  </td>
+                </tr>
+              ))
+            ) : paginated.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-14 text-center text-muted-foreground italic">
                   No students found matching your criteria.

@@ -52,13 +52,29 @@ export const CACHE_INVALIDATION_TRIGGERS = {
 
   updateAssignment: [
     CACHE_KEYS.ASSIGNMENTS,
+    CACHE_KEYS.ALL_STUDENTS,
+    CACHE_KEYS.STUDENT_LIST,
+    CACHE_KEYS.FAILING_STUDENTS,
+    CACHE_KEYS.CALL_QUEUE_STUDENTS,
     CACHE_KEYS.DASHBOARD_STATS,
     CACHE_KEYS.SUBMISSION_DATA,
   ],
 
-  addCallLog: [CACHE_KEYS.CALL_LOGS, CACHE_KEYS.CALL_STATISTICS],
+  addCallLog: [
+    CACHE_KEYS.CALL_LOGS,
+    CACHE_KEYS.CALL_STATISTICS,
+    CACHE_KEYS.CALL_QUEUE_STUDENTS,
+    CACHE_KEYS.DASHBOARD_STATS,
+  ],
 
-  addFollowUp: [CACHE_KEYS.FOLLOW_UPS, CACHE_KEYS.CALL_QUEUE_STUDENTS],
+  addFollowUp: [CACHE_KEYS.FOLLOW_UPS, CACHE_KEYS.CALL_QUEUE_STUDENTS, CACHE_KEYS.DASHBOARD_STATS],
+
+  updateSettings: [
+    CACHE_KEYS.SETTINGS,
+    CACHE_KEYS.CALL_QUEUE_STUDENTS,
+    CACHE_KEYS.FAILING_STUDENTS,
+    CACHE_KEYS.DASHBOARD_STATS,
+  ],
 } as const;
 
 /**
@@ -119,9 +135,8 @@ export const cache = {
  * Use revalidateCacheTags() from server-cache.ts directly.
  */
 
-export async function invalidateStudentCache(
-  _studentId?: string
-): Promise<void> {
+export async function invalidateStudentCache(_studentId?: string): Promise<void> {
+  void _studentId;
   // No-op
 }
 

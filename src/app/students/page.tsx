@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StudentsTable } from '@/components/Students/StudentsTable';
-import { SkeletonTable } from '@/components/Common/SkeletonLoader';
 import { FileUp, Plus, AlertCircle, Sparkles, X, Loader2 } from 'lucide-react';
 import { studentApi } from '@/lib/api-client';
 import { PAGE_ROUTES } from '@/lib/constants';
@@ -40,6 +39,7 @@ export default function StudentsPage() {
   const [deviceFilter, setDeviceFilter] = useState('');
   const [selectedAssignment, setSelectedAssignment] = useState<number>(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [showAnalyzePanel, setShowAnalyzePanel] = useState(false);
@@ -161,6 +161,47 @@ export default function StudentsPage() {
     setGroupFilter('');
     setDeviceFilter('');
     setCurrentPage(1);
+  };
+
+  const handleExportFiltered = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+
+      if (search) params.set('search', search);
+      if (statusFilter) params.set('status', statusFilter);
+      if (progressFilter) params.set('progress', progressFilter);
+      if (groupFilter) params.set('group', groupFilter);
+      if (deviceFilter) params.set('device', deviceFilter);
+
+      const response = await fetch(`/api/export/call-list?${params.toString()}`);
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || data.message || 'Failed to export students');
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const filenameMatch = disposition.match(/filename="([^"]+)"/);
+      const filename =
+        filenameMatch?.[1] || `filtered-call-list-${new Date().toISOString().split('T')[0]}.xlsx`;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Filtered call sheet exported');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to export students';
+      toast.error(message);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleAnalyze = async () => {
@@ -475,32 +516,27 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {/* Loading State */}
-      {loading ? (
-        <div className="space-y-4">
-          <SkeletonTable rows={10} columns={5} />
-        </div>
-      ) : (
-        <StudentsTable
-          students={students}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalStudents={totalStudents}
-          onPageChange={setCurrentPage}
-          isLoading={loading}
-          search={search}
-          onSearchChange={handleSearchChange}
-          statusFilter={statusFilter || 'all'}
-          onStatusFilterChange={handleStatusChange}
-          progressFilter={progressFilter || 'all'}
-          onProgressFilterChange={handleProgressChange}
-          groupFilter={groupFilter || 'all'}
-          onGroupFilterChange={handleGroupChange}
-          deviceFilter={deviceFilter || 'all'}
-          onDeviceFilterChange={handleDeviceChange}
-          onResetFilters={handleResetFilters}
-        />
-      )}
+      <StudentsTable
+        students={students}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalStudents={totalStudents}
+        onPageChange={setCurrentPage}
+        isLoading={loading}
+        search={search}
+        onSearchChange={handleSearchChange}
+        statusFilter={statusFilter || 'all'}
+        onStatusFilterChange={handleStatusChange}
+        progressFilter={progressFilter || 'all'}
+        onProgressFilterChange={handleProgressChange}
+        groupFilter={groupFilter || 'all'}
+        onGroupFilterChange={handleGroupChange}
+        deviceFilter={deviceFilter || 'all'}
+        onDeviceFilterChange={handleDeviceChange}
+        onResetFilters={handleResetFilters}
+        onExportFiltered={handleExportFiltered}
+        isExporting={isExporting}
+      />
     </div>
   );
 }

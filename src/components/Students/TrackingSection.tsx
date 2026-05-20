@@ -80,19 +80,8 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
     fetchCurrentAssignment();
   }, []);
 
-  const currentAssignment = assignments.find(
-    (assignment) => assignment.assignmentNumber === currentAssignmentNumber
-  );
-
-  const currentAssignmentSubmitted =
-    currentAssignment?.status === 'SUBMITTED' || currentAssignment?.status === 'COMPLETED';
-
   // Calculate auto-detected status
   const detectedStatus = useMemo(() => {
-    if (currentAssignmentSubmitted) {
-      return 'On Track';
-    }
-
     const incompleteReleasedAssignments = Array.from(
       { length: currentAssignmentNumber },
       (_, index) => index + 1
@@ -102,12 +91,20 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
       return assignment?.status !== 'COMPLETED' && assignment?.status !== 'SUBMITTED';
     }).length;
 
-    if (incompleteReleasedAssignments > 2) {
+    if (incompleteReleasedAssignments === 0) {
+      return 'On Track';
+    }
+
+    if (incompleteReleasedAssignments === 1) {
+      return 'Behind';
+    }
+
+    if (incompleteReleasedAssignments >= 2) {
       return 'At Risk';
     }
 
-    return 'Behind';
-  }, [assignments, currentAssignmentNumber, currentAssignmentSubmitted]);
+    return 'On Track';
+  }, [assignments, currentAssignmentNumber]);
 
   const handleStatusUpdate = async (newStatus: StudentStatus) => {
     try {
@@ -200,14 +197,13 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
           <p className="text-xs font-semibold mb-2">Auto-Detection Rules:</p>
           <ul className="text-xs space-y-1 list-disc list-inside">
             <li>
-              More than 2 released assignments not submitted → <strong>At Risk</strong>
+              2+ released assignments not submitted → <strong>At Risk</strong>
             </li>
             <li>
-              Current assignment (A-{String(currentAssignmentNumber).padStart(2, '0')}) not
-              submitted → <strong>Behind</strong>
+              1 released assignment not submitted → <strong>Behind</strong>
             </li>
             <li>
-              Current assignment submitted → <strong>On Track</strong>
+              All released assignments submitted → <strong>On Track</strong>
             </li>
           </ul>
         </div>

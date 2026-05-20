@@ -3,6 +3,8 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -15,6 +17,22 @@ const parseAssignmentNumber = (assignment: string | undefined) => {
   const assignmentNumber = parseInt(assignment.split('-')[1], 10);
 
   return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
+};
+
+const isAssignmentSubmitted = (assignment: any) =>
+  assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
+
+const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
+  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
+    const assignment = assignments.find((item: any) => item.assignmentNumber === assignmentNumber);
+
+    return !isAssignmentSubmitted(assignment);
+  }).length;
+
+const getStatusFromMissedCount = (missedCount: number) => {
+  if (missedCount === 0) return 'On Track';
+  if (missedCount === 1) return 'Behind';
+  return 'At Risk';
 };
 
 export async function POST(request: NextRequest) {
@@ -59,10 +77,16 @@ export async function POST(request: NextRequest) {
           (a: any) => a.assignmentNumber === assignmentNumber
         );
 
-        const isCompleted =
-          assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
+        const isCompleted = isAssignmentSubmitted(assignment);
+        const missedAssignmentCount = getMissedReleasedAssignmentCount(
+          student.assignments,
+          assignmentNumber
+        );
         const previousStatus = student.currentStatus || 'On Track';
-        const newStatus = isCompleted ? 'On Track' : 'Behind';
+        const newStatus =
+          previousStatus === 'Dropped'
+            ? 'Dropped'
+            : getStatusFromMissedCount(missedAssignmentCount);
         const updateData: Record<string, string> = {
           currentStatus: newStatus,
         };
@@ -91,6 +115,7 @@ export async function POST(request: NextRequest) {
           id: student._id.toString(),
           name: student.name,
           completed: isCompleted,
+          missedAssignmentCount,
           previousStatus,
           newStatus,
         });
@@ -122,6 +147,9 @@ export async function POST(request: NextRequest) {
       `Analysis completed. ${updatedCount} students updated.`,
       result
     );
+
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateStudent);
+
     return NextResponse.json(response);
   } catch (error) {
     logger.error('POST /api/students/analyze - Failed', error);

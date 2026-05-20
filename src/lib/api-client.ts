@@ -140,8 +140,7 @@ export const studentApi = {
 
   create: (data: Record<string, unknown>) => apiClient.post('/api/students', data),
 
-  update: (id: string, data: Record<string, unknown>) =>
-    apiClient.put(`/api/students/${id}`, data),
+  update: (id: string, data: Record<string, unknown>) => apiClient.put(`/api/students/${id}`, data),
 
   delete: (id: string) => apiClient.delete(`/api/students/${id}`),
 };
@@ -217,7 +216,9 @@ export const dashboardApi = {
     }),
 
   getCallQueue: (page: number = 1, limit: number = 10) =>
-    apiClient.get(`/api/call-queue?page=${page}&limit=${limit}`),
+    apiClient.get(`/api/call-queue?page=${page}&limit=${limit}`, {
+      cacheTags: [CACHE_TAGS.CALL_QUEUE_STUDENTS],
+    }),
 
   getAssignmentStats: () =>
     apiClient.get('/api/dashboard/assignment-stats', {

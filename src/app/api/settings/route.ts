@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Settings } from '@/models/Settings';
 import { requireCurrentUserId } from '@/lib/auth-utils';
+import { revalidateCacheTags } from '@/lib/server-cache';
+import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 
 export async function GET() {
   try {
@@ -59,6 +61,8 @@ export async function POST(request: Request) {
       settings.currentAssignment = currentAssignment;
       await settings.save();
     }
+
+    revalidateCacheTags(CACHE_INVALIDATION_TRIGGERS.updateSettings);
 
     return NextResponse.json({
       success: true,
