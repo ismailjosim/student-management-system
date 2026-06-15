@@ -28,7 +28,7 @@ export function Card({ children, className }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border border-border bg-card shadow-sm hover:shadow-md transition-shadow',
+        'surface overflow-hidden transition duration-200 hover:-translate-y-0.5',
         className
       )}
     >
@@ -40,10 +40,13 @@ export function Card({ children, className }: CardProps) {
 export function CardHeader({ children, className, title, subtitle, action }: CardHeaderProps) {
   return (
     <div
-      className={cn('border-b border-border px-6 py-4 flex items-start justify-between', className)}
+      className={cn(
+        'flex items-start justify-between border-b border-border/70 px-5 py-4 sm:px-6 sm:py-5',
+        className
+      )}
     >
       <div className="flex-1">
-        {title && <h3 className="text-lg font-semibold text-foreground">{title}</h3>}
+        {title && <h3 className="text-lg font-bold text-foreground">{title}</h3>}
         {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -53,7 +56,7 @@ export function CardHeader({ children, className, title, subtitle, action }: Car
 }
 
 export function CardBody({ children, className }: CardBodyProps) {
-  return <div className={cn('px-6 py-4', className)}>{children}</div>;
+  return <div className={cn('px-5 py-5 sm:px-6', className)}>{children}</div>;
 }
 
 export function CardFooter({ children, className }: CardFooterProps) {

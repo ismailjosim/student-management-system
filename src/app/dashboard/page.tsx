@@ -1,16 +1,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DashboardStats } from '@/components/Dashboard/DashboardStats';
 import { FailingStudentsTable } from '@/components/Dashboard/FailingStudentsTable';
 import { CallQueue } from '@/components/Dashboard/CallQueue';
 import { SubmissionDistribution } from '@/components/Dashboard/SubmissionDistribution';
 import { AssignmentCompletionStats } from '@/components/Dashboard/AssignmentCompletionStats';
-import { dashboardApi, studentApi } from '@/lib/api-client';
+import { DashboardSkeleton } from '@/components/Dashboard/DashboardSkeleton';
+import { dashboardApi } from '@/lib/api-client';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import type { DashboardStats as DashboardStatsType, StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
+
+interface DashboardOverview {
+  stats: DashboardStatsType;
+  students: StudentWithRelations[];
+  failingStudents: StudentWithRelations[];
+  failingPagination: { page: number; total: number; pages: number };
+  callQueue: StudentWithRelations[];
+  callQueuePagination: { page: number; total: number; pages: number };
+}
+
+let dashboardMemoryCache: DashboardOverview | null = null;
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStatsType | null>(null);
@@ -30,29 +42,29 @@ export default function DashboardPage() {
   const [callQueueTotalPages, setCallQueueTotalPages] = useState(1);
   const [failingTotalCount, setFailingTotalCount] = useState(0);
   const [callQueueTotalCount, setCallQueueTotalCount] = useState(0);
+  const skipInitialFailingRequest = useRef(true);
+  const skipInitialCallQueueRequest = useRef(true);
+
+  const applyOverview = useCallback((overview: DashboardOverview) => {
+    setStats(overview.stats);
+    setAllStudents(overview.students || []);
+    setFailingStudents(overview.failingStudents || []);
+    setFailingTotalPages(overview.failingPagination?.pages || 1);
+    setFailingTotalCount(overview.failingPagination?.total || 0);
+    setCallQueueStudents(overview.callQueue || []);
+    setCallQueueTotalPages(overview.callQueuePagination?.pages || 1);
+    setCallQueueTotalCount(overview.callQueuePagination?.total || 0);
+  }, []);
 
   const fetchOverviewData = useCallback(async () => {
-    const [statsResponse, allStudentsResponse] = await Promise.all([
-      dashboardApi.getStats(),
-      studentApi.getAllPaginated(1, 1000),
-    ]);
+    const response = await dashboardApi.getOverview();
+    if (response.error) throw new Error(response.error);
+    if (!response.data) throw new Error('Dashboard returned no data');
 
-    if (statsResponse.error) {
-      throw new Error(statsResponse.error);
-    }
-
-    if (statsResponse.data) {
-      setStats(statsResponse.data as DashboardStatsType);
-    }
-
-    if (allStudentsResponse.data) {
-      const data = Array.isArray(allStudentsResponse.data)
-        ? allStudentsResponse.data
-        : (allStudentsResponse.data as any).data || [];
-
-      setAllStudents(data);
-    }
-  }, []);
+    const overview = response.data as DashboardOverview;
+    applyOverview(overview);
+    dashboardMemoryCache = overview;
+  }, [applyOverview]);
 
   const fetchFailingStudents = useCallback(async () => {
     try {
@@ -102,9 +114,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const loadOverview = async () => {
+      if (dashboardMemoryCache) {
+        applyOverview(dashboardMemoryCache);
+        setLoading(false);
+      }
+
       try {
         setError(null);
-        setLoading(true);
+        if (!dashboardMemoryCache) setLoading(true);
         await fetchOverviewData();
         setLastUpdated(new Date());
       } catch (err) {
@@ -116,9 +133,14 @@ export default function DashboardPage() {
     };
 
     loadOverview();
-  }, [fetchOverviewData]);
+  }, [applyOverview, fetchOverviewData]);
 
   useEffect(() => {
+    if (skipInitialFailingRequest.current) {
+      skipInitialFailingRequest.current = false;
+      return;
+    }
+
     fetchFailingStudents().catch((err) => {
       const message = err instanceof Error ? err.message : 'Failed to fetch failing students';
       setError(message);
@@ -126,6 +148,11 @@ export default function DashboardPage() {
   }, [fetchFailingStudents]);
 
   useEffect(() => {
+    if (skipInitialCallQueueRequest.current) {
+      skipInitialCallQueueRequest.current = false;
+      return;
+    }
+
     fetchCallQueue().catch((err) => {
       const message = err instanceof Error ? err.message : 'Failed to fetch call queue';
       setError(message);
@@ -140,7 +167,9 @@ export default function DashboardPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([fetchOverviewData(), fetchFailingStudents(), fetchCallQueue()]);
+      setFailingPage(1);
+      setCallQueuePage(1);
+      await fetchOverviewData();
       setLastUpdated(new Date());
       toast.success('Dashboard refreshed');
     } catch (
@@ -177,74 +206,39 @@ export default function DashboardPage() {
   };
 
   if (loading) {
-    // Still loading initial data, but show page structure with stats
-    return (
-      <div className="space-y-8 animate-in fade-in duration-300 ">
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Cohort Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              Overview of student progress and engagement.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            <button
-              onClick={handleExportCallList}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Export Call List
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Grid Skeleton */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-pulse">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-background rounded-xl border p-4 space-y-3">
-              <div className="h-9 w-9 bg-muted rounded-lg" />
-              <div className="h-6 bg-muted rounded w-2/3" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300 ">
+    <div className="space-y-8 animate-in fade-in duration-300">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="page-header rounded-3xl border border-border/70 bg-card/70 p-5 shadow-sm backdrop-blur-sm sm:p-7">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Cohort Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Overview of student progress and engagement.</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+            Operations overview
+          </p>
+          <h1 className="page-title">Cohort Dashboard</h1>
+          <p className="page-description">
+            A live view of student progress, outreach priorities, and cohort momentum.
+          </p>
           {lastUpdated && (
             <p className="text-xs text-muted-foreground mt-2">
               Last updated: {lastUpdated.toLocaleTimeString()}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 transition-colors disabled:opacity-50"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <button
             onClick={handleExportCallList}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-colors hover:bg-hover"
           >
             <Download className="w-4 h-4" />
             Export Call List
@@ -254,7 +248,7 @@ export default function DashboardPage() {
 
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-3 p-4 px-0 bg-destructive/10 border border-destructive/20 rounded-lg">
+        <div className="flex items-center gap-3 rounded-xl border border-danger-border bg-danger-soft p-4">
           <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium text-destructive">{error}</p>
@@ -273,8 +267,8 @@ export default function DashboardPage() {
       {allStudents.length > 0 && <AssignmentCompletionStats students={allStudents} />}
 
       {/* Charts + Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
           {allStudents.length > 0 && <SubmissionDistribution students={allStudents} />}
 
           {/* Students at Risk Table with Filter */}

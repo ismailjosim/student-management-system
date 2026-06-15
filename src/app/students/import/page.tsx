@@ -136,8 +136,11 @@ export default function StudentImportPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Import Students</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          Student directory
+        </p>
+        <h1 className="page-title">Import Students</h1>
+        <p className="page-description">
           Upload a CSV or Excel file to import multiple students at once.
         </p>
       </div>
@@ -150,7 +153,7 @@ export default function StudentImportPage() {
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+            className={`surface border-2 border-dashed p-8 text-center transition-colors sm:p-12 ${
               dragActive
                 ? 'border-primary bg-primary/5'
                 : 'border-muted-foreground/20 hover:border-primary/50'
@@ -205,20 +208,24 @@ export default function StudentImportPage() {
               <div className="text-xs text-muted-foreground">Total Rows</div>
               <div className="text-2xl font-bold mt-1">{preview.totalRows}</div>
             </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-xs text-green-600 font-medium">Valid</div>
-              <div className="text-2xl font-bold mt-1 text-green-600">{preview.validCount}</div>
+            <div className="rounded-xl border border-success-border bg-success-soft p-4">
+              <div className="text-xs font-medium text-success-foreground">Valid</div>
+              <div className="mt-1 text-2xl font-bold text-success-foreground">
+                {preview.validCount}
+              </div>
             </div>
             {preview.invalidCount > 0 && (
-              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                <div className="text-xs text-red-600 font-medium">Invalid</div>
-                <div className="text-2xl font-bold mt-1 text-red-600">{preview.invalidCount}</div>
+              <div className="rounded-xl border border-danger-border bg-danger-soft p-4">
+                <div className="text-xs font-medium text-danger-foreground">Invalid</div>
+                <div className="mt-1 text-2xl font-bold text-danger-foreground">
+                  {preview.invalidCount}
+                </div>
               </div>
             )}
             {preview.duplicateCount > 0 && (
-              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <div className="text-xs text-yellow-600 font-medium">Duplicates</div>
-                <div className="text-2xl font-bold mt-1 text-yellow-600">
+              <div className="rounded-xl border border-warning-border bg-warning-soft p-4">
+                <div className="text-xs font-medium text-warning-foreground">Duplicates</div>
+                <div className="mt-1 text-2xl font-bold text-warning-foreground">
                   {preview.duplicateCount}
                 </div>
               </div>
@@ -227,16 +234,16 @@ export default function StudentImportPage() {
 
           {/* Errors if present */}
           {preview.invalidRows.length > 0 && (
-            <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+            <div className="rounded-xl border border-danger-border bg-danger-soft p-4">
               <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-4 h-4 text-red-600" />
-                <h4 className="font-semibold text-sm text-red-600">
+                <AlertCircle className="w-4 h-4 text-danger-foreground" />
+                <h4 className="text-sm font-semibold text-danger-foreground">
                   Invalid Rows ({preview.invalidRows.length})
                 </h4>
               </div>
               <div className="space-y-2 text-sm">
                 {preview.invalidRows.slice(0, 5).map((row, idx) => (
-                  <div key={idx} className="text-red-600">
+                  <div key={idx} className="text-danger-foreground">
                     <div className="font-mono text-xs">
                       Row {row.rowIndex + 1}: {row.errors.join(', ')}
                     </div>
@@ -253,14 +260,14 @@ export default function StudentImportPage() {
 
           {/* Duplicates if present */}
           {preview.duplicateEmails.length > 0 && (
-            <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+            <div className="rounded-xl border border-warning-border bg-warning-soft p-4">
               <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-4 h-4 text-yellow-600" />
-                <h4 className="font-semibold text-sm text-yellow-600">
+                <AlertCircle className="w-4 h-4 text-warning-foreground" />
+                <h4 className="text-sm font-semibold text-warning-foreground">
                   Duplicate Emails ({preview.duplicateEmails.length})
                 </h4>
               </div>
-              <div className="space-y-1 text-sm text-yellow-700">
+              <div className="space-y-1 text-sm text-warning-foreground">
                 {preview.duplicateEmails.map((dup, idx) => (
                   <div key={idx} className="font-mono text-xs">
                     {dup.email} (rows: {dup.rowIndices.map((i) => i + 1).join(', ')})
@@ -339,11 +346,11 @@ export default function StudentImportPage() {
       {step === 'success' && preview && (
         <div className="space-y-6">
           {/* Success message */}
-          <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+          <div className="flex items-center gap-3 rounded-xl border border-success-border bg-success-soft p-4">
+            <CheckCircle className="w-5 h-5 flex-shrink-0 text-success-foreground" />
             <div>
-              <h3 className="font-semibold text-green-600">Import completed!</h3>
-              <p className="text-sm text-green-600 mt-1">
+              <h3 className="font-semibold text-success-foreground">Import completed!</h3>
+              <p className="mt-1 text-sm text-success-foreground">
                 Your students have been successfully imported.
               </p>
             </div>
@@ -351,9 +358,11 @@ export default function StudentImportPage() {
 
           {/* Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-xs text-green-600 font-medium">Imported</div>
-              <div className="text-3xl font-bold mt-2 text-green-600">{preview.validCount}</div>
+            <div className="rounded-xl border border-success-border bg-success-soft p-4">
+              <div className="text-xs font-medium text-success-foreground">Imported</div>
+              <div className="mt-2 text-3xl font-bold text-success-foreground">
+                {preview.validCount}
+              </div>
             </div>
             <div className="p-4 bg-muted/50 rounded-lg border">
               <div className="text-xs text-muted-foreground">Skipped</div>
@@ -361,9 +370,11 @@ export default function StudentImportPage() {
                 {preview.invalidCount + preview.duplicateCount}
               </div>
             </div>
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-xs text-blue-600 font-medium">Total Processed</div>
-              <div className="text-3xl font-bold mt-2 text-blue-600">{preview.totalRows}</div>
+            <div className="rounded-xl border border-info-border bg-info-soft p-4">
+              <div className="text-xs font-medium text-info-foreground">Total Processed</div>
+              <div className="mt-2 text-3xl font-bold text-info-foreground">
+                {preview.totalRows}
+              </div>
             </div>
           </div>
 

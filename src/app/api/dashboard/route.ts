@@ -1,13 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { NextResponse } from 'next/server';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import Student from '@/models/Student';
-import CallLog from '@/models/CallLog';
-import FollowUp from '@/models/FollowUp';
-import { DashboardStats } from '@/types';
-import { requireCurrentUserId } from '@/lib/auth-utils';
-import { NextResponse } from 'next/server';
+import { Settings } from '@/models/Settings';
+
+const PAGE_SIZE = 10;
+
+const parseAssignmentNumber = (assignment?: string | null) => {
+  const value = Number.parseInt(assignment?.split('-')[1] || '1', 10);
+  return Number.isNaN(value) ? 1 : value;
+};
+
+const isSubmitted = (status?: string) => status === 'SUBMITTED' || status === 'COMPLETED';
 
 export async function GET() {
   try {
@@ -16,52 +23,106 @@ export async function GET() {
     if (authResult.response) return authResult.response;
     const userId = authResult.userId;
 
-    const [students, callLogs, followUps] = await Promise.all([
-      Student.find({ ownerId: userId }).lean(),
-      CallLog.find({ ownerId: userId }),
-      FollowUp.find({ ownerId: userId }),
+    const [students, settings] = await Promise.all([
+      Student.find({ ownerId: userId })
+        .select(
+          '_id name email phone currentStatus lastCompletedAssignment assignments lastContactedAt createdAt'
+        )
+        .sort({ createdAt: -1 })
+        .lean(),
+      Settings.findOne({ ownerId: userId }).select('currentAssignment').lean(),
     ]);
 
-    // Calculate assignment stats from embedded assignments
+    const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
     let totalAssignments = 0;
-    let pendingAssignments = 0;
     let completedAssignments = 0;
 
-    students.forEach((student: any) => {
-      if (student.assignments && Array.isArray(student.assignments)) {
-        student.assignments.forEach((assignment: any) => {
-          totalAssignments++;
-          if (assignment.status === 'PENDING') {
-            pendingAssignments++;
-          } else if (assignment.status === 'COMPLETED') {
-            completedAssignments++;
-          }
-        });
-      }
-    });
+    const callQueue = students
+      .filter((student: any) => {
+        if (student.currentStatus === 'Dropped' || student.currentStatus === 'Completed') {
+          return false;
+        }
 
-    const stats: DashboardStats = {
+        const currentAssignment = student.assignments?.find(
+          (assignment: any) => assignment.assignmentNumber === currentAssignmentNumber
+        );
+        return !isSubmitted(currentAssignment?.status);
+      })
+      .map((student: any) => {
+        const missedCount = Array.from(
+          { length: currentAssignmentNumber },
+          (_, index) => index + 1
+        ).filter((assignmentNumber) => {
+          const assignment = student.assignments?.find(
+            (item: any) => item.assignmentNumber === assignmentNumber
+          );
+          return !isSubmitted(assignment?.status);
+        }).length;
+
+        return {
+          ...student,
+          currentStatus: missedCount >= 2 ? 'At Risk' : 'Behind',
+          missedAssignmentCount: missedCount,
+        };
+      })
+      .sort((a: any, b: any) => {
+        if (a.currentStatus !== b.currentStatus) return a.currentStatus === 'At Risk' ? -1 : 1;
+        return (
+          new Date(a.lastContactedAt || 0).getTime() - new Date(b.lastContactedAt || 0).getTime()
+        );
+      });
+
+    for (const student of students as any[]) {
+      totalAssignments += student.assignments?.length || 0;
+      completedAssignments +=
+        student.assignments?.filter((assignment: any) => assignment.status === 'COMPLETED')
+          .length || 0;
+    }
+
+    const failingStudents = students.filter((student: any) =>
+      ['Behind', 'At Risk'].includes(student.currentStatus)
+    );
+
+    const stats = {
       totalStudents: students.length,
       activeStudents: students.filter(
-        (s: any) => s.currentStatus !== 'Dropped' && s.currentStatus !== 'Completed'
+        (student: any) => !['Dropped', 'Completed'].includes(student.currentStatus)
       ).length,
-      onTrackStudents: students.filter((s: any) => s.currentStatus === 'On Track').length,
-      atRiskStudents: students.filter((s: any) => s.currentStatus === 'At Risk').length,
-      completedStudents: students.filter((s: any) => s.currentStatus === 'Completed').length,
+      onTrackStudents: students.filter((student: any) => student.currentStatus === 'On Track')
+        .length,
+      atRiskStudents: failingStudents.length,
+      completedStudents: students.filter((student: any) => student.currentStatus === 'Completed')
+        .length,
       totalAssignments,
-      pendingAssignments,
+      pendingAssignments: totalAssignments - completedAssignments,
       completedAssignments,
-      totalCallLogs: callLogs.length,
-      totalFollowUps: followUps.length,
-      pendingFollowUps: followUps.filter((f: any) => new Date(f.date) > new Date()).length,
+      totalCallLogs: 0,
+      totalFollowUps: callQueue.length,
+      pendingFollowUps: callQueue.length,
     };
 
-    const response = createResponse(200, 'Dashboard stats fetched successfully', stats);
-    return NextResponse.json(response);
+    return NextResponse.json(
+      createResponse(200, 'Dashboard overview fetched successfully', {
+        stats,
+        students,
+        failingStudents: failingStudents.slice(0, PAGE_SIZE),
+        failingPagination: {
+          page: 1,
+          total: failingStudents.length,
+          pages: Math.max(1, Math.ceil(failingStudents.length / PAGE_SIZE)),
+        },
+        callQueue: callQueue.slice(0, PAGE_SIZE),
+        callQueuePagination: {
+          page: 1,
+          total: callQueue.length,
+          pages: Math.max(1, Math.ceil(callQueue.length / PAGE_SIZE)),
+        },
+      })
+    );
   } catch (error) {
-    handleDbError(error);
-    return NextResponse.json(createResponse(500, 'Failed to fetch dashboard stats'), {
-      status: 500,
+    const errorData = handleDbError(error);
+    return NextResponse.json(createResponse(errorData.statusCode, errorData.message), {
+      status: errorData.statusCode,
     });
   }
 }

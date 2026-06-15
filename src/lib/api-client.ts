@@ -205,6 +205,8 @@ export const followUpApi = {
 };
 
 export const dashboardApi = {
+  getOverview: () => apiClient.get('/api/dashboard'),
+
   getStats: () =>
     apiClient.get('/api/dashboard/stats', {
       cacheTags: [CACHE_TAGS.DASHBOARD_STATS],

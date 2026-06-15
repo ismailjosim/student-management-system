@@ -48,9 +48,9 @@ export function CallQueue({
   };
 
   return (
-    <div className="bg-background rounded-xl border shadow-sm flex flex-col h-full">
+    <div className="surface flex h-full flex-col overflow-hidden">
       <div className="px-6 py-4 border-b">
-        <div className="flex items-center gap-2 text-amber-600">
+        <div className="flex items-center gap-2 text-warning-foreground">
           <Phone className="w-4 h-4" />
           <h2 className="font-semibold">Call Queue</h2>
         </div>

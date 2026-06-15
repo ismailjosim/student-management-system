@@ -11,6 +11,7 @@ import {
   X,
   LogOut,
   User,
+  Command,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { APP_NAME } from '@/lib/constants';
@@ -62,19 +63,21 @@ export function Navbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 shadow-sm ">
-      <div className="flex items-center justify-between container mx-auto py-3 px-0">
+    <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/80 backdrop-blur-xl">
+      <div className="container flex h-16 items-center justify-between gap-4">
         {/* Logo */}
         <Link
           href={PAGE_ROUTES.DASHBOARD}
-          className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary hover:opacity-80 transition-opacity "
+          className="group flex items-center gap-3 font-bold tracking-tight"
         >
-          <GraduationCap className="w-6 h-6" />
-          <span>{APP_NAME}</span>
+          <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20 transition-transform group-hover:scale-[1.03]">
+            <GraduationCap className="size-5" />
+          </span>
+          <span className="hidden text-lg sm:inline">{APP_NAME}</span>
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-1 ">
+        <nav className="hidden items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-1 md:flex">
           {navLinks.map(({ label, href, icon: Icon }) => {
             const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
             return (
@@ -82,10 +85,10 @@ export function Navbar() {
                 key={href}
                 href={href}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                  'flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -96,13 +99,13 @@ export function Navbar() {
         </nav>
 
         {/* Current Assignment Badge */}
-        <div className="hidden md:flex px-3 py-1.5 bg-success-soft border border-success-border rounded-full items-center gap-2">
-          <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
+        <div className="hidden items-center gap-2 rounded-full border border-success-border bg-success-soft px-3 py-1.5 lg:flex">
+          <div className="size-1.5 rounded-full bg-success shadow-[0_0_0_4px_color-mix(in_oklch,var(--success)_15%,transparent)]" />
           {isLoadingAssignment ? (
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           ) : (
             <span className="text-xs font-semibold text-success-foreground">
-              Current: <span className="font-bold">{currentAssignment}</span>
+              Live cohort <span className="font-bold">{currentAssignment}</span>
             </span>
           )}
         </div>
@@ -112,17 +115,21 @@ export function Navbar() {
           <ThemeToggler />
 
           {session?.user ? (
-            <div className="hidden md:flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground" />
+            <div className="hidden items-center gap-2 md:flex">
+              <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card/70 px-2.5 py-1.5">
+                <div className="grid size-7 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+                  <User className="size-3.5" />
+                </div>
                 <div className="text-sm">
                   <p className="font-medium">{session.user.name}</p>
-                  <p className="text-xs text-muted-foreground">{session.user.email}</p>
+                  <p className="max-w-32 truncate text-[11px] text-muted-foreground">
+                    {session.user.email}
+                  </p>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                className="grid size-9 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-foreground"
                 title="Logout"
               >
                 <LogOut className="w-4 h-4" />
@@ -132,7 +139,7 @@ export function Navbar() {
 
           {/* Mobile Toggle */}
           <button
-            className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className="grid size-10 place-items-center rounded-xl border bg-card text-muted-foreground md:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -143,7 +150,7 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t bg-background px-4 pb-4">
+        <div className="border-t bg-background/95 px-4 pb-4 backdrop-blur-xl md:hidden">
           <nav className="flex flex-col gap-1 pt-3">
             {navLinks.map(({ label, href, icon: Icon }) => {
               const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
@@ -153,10 +160,10 @@ export function Navbar() {
                   href={href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors',
+                    'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
                   <Icon className="w-4 h-4" />
@@ -164,6 +171,11 @@ export function Navbar() {
                 </Link>
               );
             })}
+
+            <div className="mt-2 flex items-center gap-2 rounded-xl border bg-card p-3 text-xs text-muted-foreground">
+              <Command className="size-4 text-primary" />
+              Cohort workspace
+            </div>
 
             {/* Mobile User Section */}
             {session?.user && (

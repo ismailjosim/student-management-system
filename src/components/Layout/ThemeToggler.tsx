@@ -18,16 +18,16 @@ export function ThemeToggler() {
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       suppressHydrationWarning
       className={cn(
-        'relative inline-flex h-8 w-14 items-center rounded-full border border-border bg-secondary p-1 transition-all duration-300',
-        'hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-        isDark && 'bg-primary shadow-[0_0_14px_rgba(251,113,133,0.32)]'
+        'relative inline-flex h-9 w-14 items-center rounded-xl border border-border bg-card p-1 transition-all duration-300',
+        'hover:bg-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/15',
+        isDark && 'bg-secondary'
       )}
     >
       <span
         suppressHydrationWarning
         className={cn(
-          'inline-flex size-6 items-center justify-center rounded-full bg-background text-foreground shadow-sm transition-transform duration-300',
-          isDark && 'translate-x-6 text-primary'
+          'inline-flex size-6 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform duration-300',
+          isDark && 'translate-x-5'
         )}
       >
         {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}

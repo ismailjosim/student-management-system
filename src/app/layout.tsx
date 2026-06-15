@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 import { Toaster } from 'react-hot-toast';
-import { Navbar } from '@/components/Layout/Navbar';
-import { Footer } from '@/components/Layout/Footer';
+import { AppShell } from '@/components/Layout/AppShell';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { NextThemeProvider } from '@/components/providers/NextThemeProvider';
 
@@ -19,13 +18,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-background">
+      <body className="min-h-full bg-background">
         <NextThemeProvider>
           <AuthProvider>
             <Toaster position="top-center" />
-            <Navbar />
-            <main className="min-h-screen container mx-auto">{children}</main>
-            <Footer />
+            <AppShell>{children}</AppShell>
           </AuthProvider>
         </NextThemeProvider>
       </body>

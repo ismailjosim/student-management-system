@@ -4,11 +4,16 @@ import { BulkUpdateTabs } from '@/components/bulk-update/BulkUpdateTabs';
 export default function BulkUpdatePage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Bulk Updates</h1>
-        <p className="text-muted-foreground mt-1">
-          Update multiple student records or assignments via batch data entry.
-        </p>
+      <div className="page-header rounded-3xl border border-border/70 bg-card/70 p-5 sm:p-7">
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+            Data operations
+          </p>
+          <h1 className="page-title">Bulk Updates</h1>
+          <p className="page-description">
+            Update multiple student records or assignments via batch data entry.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -21,16 +21,11 @@ interface SubmissionDistributionProps {
 
 // Color palette for different assignment completion levels
 const COLORS = [
-  '#3b82f6',
-  '#0ea5e9',
-  '#06b6d4',
-  '#10b981',
-  '#8b5cf6',
-  '#ec4899',
-  '#f59e0b',
-  '#ef4444',
-  '#dc2626',
-  '#991b1b',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ];
 
 export function SubmissionDistribution({ students }: SubmissionDistributionProps) {
@@ -53,7 +48,7 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
   });
 
   return (
-    <div className="bg-background rounded-xl border shadow-sm">
+    <div className="surface overflow-hidden">
       <div className="px-6 py-4 border-b">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           Assignment Submission Overview
@@ -68,25 +63,25 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.1)" />
             <XAxis
               dataKey="name"
-              stroke="hsl(var(--muted-foreground) / 0.7)"
-              tick={{ fill: 'hsl(var(--foreground))', fontSize: 13, fontWeight: 500 }}
+              stroke="var(--muted-foreground)"
+              tick={{ fill: 'var(--foreground)', fontSize: 13, fontWeight: 500 }}
             />
             <YAxis
-              stroke="hsl(var(--muted-foreground) / 0.7)"
-              tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+              stroke="var(--muted-foreground)"
+              tick={{ fill: 'var(--foreground)', fontSize: 12 }}
               label={{
                 value: 'Students',
                 angle: -90,
                 position: 'insideLeft',
-                style: { fill: 'hsl(var(--foreground))' },
+                style: { fill: 'var(--foreground)' },
               }}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(var(--background))',
-                border: '2px solid hsl(var(--border))',
-                borderRadius: '8px',
-                color: 'hsl(var(--foreground))',
+                backgroundColor: 'var(--popover)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                color: 'var(--popover-foreground)',
                 zIndex: 1000,
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
               }}
@@ -98,7 +93,7 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
                   return [value, name];
                 }) as any
               }
-              labelStyle={{ color: 'hsl(var(--foreground))' }}
+              labelStyle={{ color: 'var(--foreground)' }}
               cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
             />
             <Legend wrapperStyle={{ paddingTop: '20px' }} />
@@ -116,17 +111,15 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
             <p className="text-muted-foreground font-medium mb-1">Total Students</p>
             <p className="text-xl font-bold">{total}</p>
           </div>
-          <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-            <p className="text-green-700 dark:text-green-300 font-medium mb-1">
-              Completed All (A-10)
-            </p>
-            <p className="text-xl font-bold text-green-600 dark:text-green-400">
+          <div className="rounded-xl border border-success-border bg-success-soft p-3">
+            <p className="mb-1 font-medium text-success-foreground">Completed All (A-10)</p>
+            <p className="text-xl font-bold text-success-foreground">
               {chartData[9]?.students || 0}
             </p>
           </div>
-          <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
-            <p className="text-amber-700 dark:text-amber-300 font-medium mb-1">Latest Completed</p>
-            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+          <div className="rounded-xl border border-warning-border bg-warning-soft p-3">
+            <p className="mb-1 font-medium text-warning-foreground">Latest Completed</p>
+            <p className="text-lg font-bold text-warning-foreground">
               A-{String(Math.max(...distribution.map((_, i) => i + 1))).padStart(2, '0')}
             </p>
           </div>

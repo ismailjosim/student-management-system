@@ -1,16 +1,15 @@
 import React from 'react';
 import { cn } from '@/lib/cn';
 
-interface SkeletonProps {
-  className?: string;
+interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   count?: number;
 }
 
-export function Skeleton({ className, count = 1 }: SkeletonProps) {
+export function Skeleton({ className, count = 1, ...props }: SkeletonProps) {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className={cn('h-4 bg-muted rounded animate-pulse', className)} />
+        <div key={i} className={cn('h-4 animate-pulse rounded bg-muted', className)} {...props} />
       ))}
     </>
   );

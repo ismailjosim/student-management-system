@@ -34,8 +34,8 @@ export function AssignmentCompletionStats({ students }: AssignmentCompletionStat
   });
 
   return (
-    <div className="bg-background rounded-xl border shadow-sm">
-      <div className="px-6 py-4 border-b">
+    <div className="surface overflow-hidden">
+      <div className="border-b border-border/70 px-6 py-5">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           Assignment Completion Stats
         </h2>
@@ -48,7 +48,7 @@ export function AssignmentCompletionStats({ students }: AssignmentCompletionStat
           {assignmentStats.map(({ number, completed, percentage, style }) => (
             <div
               key={number}
-              className={`${style} rounded-lg border shadow-sm p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-md`}
+              className={`${style} rounded-xl border p-4 text-center transition-all hover:-translate-y-0.5`}
             >
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider">
                 A-{String(number).padStart(2, '0')}

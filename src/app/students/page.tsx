@@ -248,11 +248,14 @@ export default function StudentsPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="page-header rounded-3xl border border-border/70 bg-card/70 p-5 sm:p-7">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Student Roster</h1>
-          <p className="text-muted-foreground mt-1">
-            Comprehensive list of all cohort participants.
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+            Cohort directory
+          </p>
+          <h1 className="page-title">Student Roster</h1>
+          <p className="page-description">
+            Search, segment, and support every participant from one clear workspace.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -260,21 +263,21 @@ export default function StudentsPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowAnalyzePanel(!showAnalyzePanel)}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-purple-300 bg-purple-50 text-purple-700 rounded-md text-sm font-medium hover:bg-purple-100 transition-colors"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
             >
               <Sparkles className="w-4 h-4" />
               Analyze
             </button>
             <Link
               href={`${PAGE_ROUTES.STUDENTS}/import`}
-              className="inline-flex items-center gap-2 px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted"
             >
               <FileUp className="w-4 h-4" />
               Import CSV
             </Link>
             <Link
               href={`${PAGE_ROUTES.STUDENTS}/new`}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-colors hover:bg-hover"
             >
               <Plus className="w-4 h-4" />
               Add Student
@@ -301,11 +304,11 @@ export default function StudentsPage() {
 
       {/* Analyze Panel */}
       {showAnalyzePanel && (
-        <div className="p-4 bg-linear-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg space-y-4 animate-in slide-in-from-top duration-200">
+        <div className="surface space-y-4 border-primary/20 bg-primary/5 p-5 animate-in slide-in-from-top duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-600" />
+                <Sparkles className="w-4 h-4 text-primary" />
                 Analyze All Students
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
@@ -315,7 +318,7 @@ export default function StudentsPage() {
             </div>
             <button
               onClick={() => setShowAnalyzePanel(false)}
-              className="p-1 hover:bg-purple-200 rounded transition-colors"
+              className="rounded-lg p-1.5 transition-colors hover:bg-primary/10"
             >
               <X className="w-4 h-4 text-muted-foreground" />
             </button>
@@ -330,7 +333,7 @@ export default function StudentsPage() {
                 value={selectedAssignment}
                 onChange={(e) => setSelectedAssignment(parseInt(e.target.value))}
                 disabled={isAnalyzing}
-                className="w-full px-3 py-2 border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="h-10 w-full rounded-xl border bg-card px-3 text-sm focus:outline-none focus:ring-4 focus:ring-ring/15"
               >
                 {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
                   <option key={num} value={num}>
@@ -343,7 +346,7 @@ export default function StudentsPage() {
             <button
               onClick={handleAnalyze}
               disabled={isAnalyzing}
-              className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
+              className="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-6 font-semibold text-primary-foreground transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
               {isAnalyzing ? 'Analyzing...' : 'Analyze'}
@@ -355,9 +358,9 @@ export default function StudentsPage() {
       {/* Loading Modal */}
       {isAnalyzing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg border shadow-2xl max-w-sm w-full">
+          <div className="surface w-full max-w-sm shadow-2xl">
             <div className="p-8 flex flex-col items-center justify-center gap-4">
-              <Loader2 className="w-12 h-12 text-purple-600 animate-spin" />
+              <Loader2 className="w-12 h-12 text-primary animate-spin" />
               <div className="text-center">
                 <h2 className="text-lg font-semibold mb-2">Analyzing Students</h2>
                 <p className="text-sm text-muted-foreground">
@@ -373,11 +376,11 @@ export default function StudentsPage() {
       {/* Analysis Results Modal */}
       {showAnalysisModal && analysisResult && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg border shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="surface max-h-[90vh] w-full max-w-2xl overflow-y-auto shadow-2xl">
             {/* Header */}
-            <div className="sticky top-0 px-6 py-4 border-b bg-linear-to-r from-purple-50 to-blue-50 flex items-center justify-between">
+            <div className="sticky top-0 flex items-center justify-between border-b bg-card/95 px-6 py-4 backdrop-blur">
               <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
+                <Sparkles className="w-5 h-5 text-primary" />
                 Analysis Results
               </h2>
               <button
@@ -392,19 +395,21 @@ export default function StudentsPage() {
             <div className="p-6 space-y-6">
               {/* Summary Stats */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="rounded-xl border border-info-border bg-info-soft p-4">
                   <p className="text-xs text-muted-foreground mb-1">Total Students</p>
-                  <p className="text-3xl font-bold text-blue-700">{analysisResult.totalStudents}</p>
+                  <p className="text-3xl font-bold text-info-foreground">
+                    {analysisResult.totalStudents}
+                  </p>
                 </div>
-                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
                   <p className="text-xs text-muted-foreground mb-1">Assignment Analyzed</p>
-                  <p className="text-3xl font-bold text-purple-700">
+                  <p className="text-3xl font-bold text-primary">
                     A-{String(analysisResult.completedAssignment).padStart(2, '0')}
                   </p>
                 </div>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="rounded-xl border border-success-border bg-success-soft p-4">
                   <p className="text-xs text-muted-foreground mb-1">Completed</p>
-                  <p className="text-3xl font-bold text-green-700">
+                  <p className="text-3xl font-bold text-success-foreground">
                     {analysisResult.completedCount}{' '}
                     <span className="text-sm text-muted-foreground">
                       (
@@ -415,9 +420,9 @@ export default function StudentsPage() {
                     </span>
                   </p>
                 </div>
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="rounded-xl border border-warning-border bg-warning-soft p-4">
                   <p className="text-xs text-muted-foreground mb-1">Not Completed</p>
-                  <p className="text-3xl font-bold text-orange-700">
+                  <p className="text-3xl font-bold text-warning-foreground">
                     {analysisResult.notCompletedCount}{' '}
                     <span className="text-sm text-muted-foreground">
                       (
@@ -432,8 +437,8 @@ export default function StudentsPage() {
 
               {/* Updated Students */}
               {analysisResult.updatedCount > 0 && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-sm font-semibold text-amber-900">
+                <div className="rounded-xl border border-warning-border bg-warning-soft p-4">
+                  <p className="text-sm font-semibold text-warning-foreground">
                     ✓ {analysisResult.updatedCount} student
                     {analysisResult.updatedCount !== 1 ? 's' : ''} status updated
                   </p>
@@ -451,8 +456,8 @@ export default function StudentsPage() {
                       key={idx}
                       className={`p-3 rounded-lg border ${
                         student.completed
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-orange-50 border-orange-200'
+                          ? 'bg-success-soft border-success-border'
+                          : 'bg-warning-soft border-warning-border'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -460,18 +465,20 @@ export default function StudentsPage() {
                           <p className="font-semibold text-sm">{student.name}</p>
                           <p className="text-xs text-muted-foreground mt-1">
                             {student.completed ? (
-                              <span className="text-green-700 font-medium">✓ Completed</span>
+                              <span className="text-success-foreground font-medium">Completed</span>
                             ) : (
-                              <span className="text-orange-700 font-medium">✗ Not Completed</span>
+                              <span className="text-warning-foreground font-medium">
+                                Not Completed
+                              </span>
                             )}
                           </p>
                         </div>
                         {student.previousStatus !== student.newStatus && (
                           <div className="text-xs">
-                            <span className="inline-block px-2 py-1 bg-gray-200 text-gray-700 rounded mr-2 font-medium">
+                            <span className="mr-2 inline-block rounded bg-neutral-soft px-2 py-1 font-medium text-neutral-foreground">
                               {student.previousStatus}
                             </span>
-                            <span className="inline-block px-2 py-1 bg-purple-200 text-purple-700 rounded font-medium">
+                            <span className="inline-block rounded bg-primary/10 px-2 py-1 font-medium text-primary">
                               {student.newStatus}
                             </span>
                           </div>

@@ -23,13 +23,13 @@ export function FailingStudentsTable({
   loading = false,
 }: FailingStudentsTableProps) {
   return (
-    <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
+    <div className="surface overflow-hidden">
       <div className="px-6 py-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-red-500" />
+          <AlertTriangle className="w-4 h-4 text-danger-foreground" />
           <h2 className="font-semibold">Students at Risk</h2>
         </div>
-        <span className="text-xs font-medium px-2 py-0.5 bg-red-100 text-red-700 rounded-full border border-red-200">
+        <span className="rounded-full border border-danger-border bg-danger-soft px-2.5 py-1 text-xs font-semibold text-danger-foreground">
           {students.length} students
         </span>
       </div>

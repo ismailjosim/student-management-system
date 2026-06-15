@@ -31,14 +31,14 @@ interface TableCellProps {
 
 export function Table({ children, className }: TableProps) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border border-border/70">
       <table className={cn('w-full text-sm', className)}>{children}</table>
     </div>
   );
 }
 
 export function TableHeader({ children, className }: TableHeaderProps) {
-  return <thead className={cn('bg-muted/50 border-b border-border', className)}>{children}</thead>;
+  return <thead className={cn('border-b border-border bg-muted/60', className)}>{children}</thead>;
 }
 
 export function TableBody({ children, className }: TableBodyProps) {
@@ -49,7 +49,7 @@ export function TableRow({ children, className, clickable, onClick }: TableRowPr
   return (
     <tr
       className={cn(
-        'transition-colors hover:bg-muted/50',
+        'transition-colors hover:bg-accent/50',
         clickable && 'cursor-pointer',
         className
       )}
@@ -64,7 +64,7 @@ export function TableCell({ children, className, align = 'left' }: TableCellProp
   const alignClass =
     align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
-  return <td className={cn('px-4 py-3 text-foreground', alignClass, className)}>{children}</td>;
+  return <td className={cn('px-4 py-3.5 text-foreground', alignClass, className)}>{children}</td>;
 }
 
 interface TableHeadCellProps extends TableCellProps {

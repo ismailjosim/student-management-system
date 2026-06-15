@@ -83,8 +83,13 @@ export default function CreateStudentPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Create New Student</h1>
-        <p className="text-muted-foreground mt-1">Add a new student to the system.</p>
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          Student directory
+        </p>
+        <h1 className="page-title">Create New Student</h1>
+        <p className="page-description">
+          Add a student profile and the context mentors need to support them.
+        </p>
       </div>
 
       {/* Error alert */}
@@ -96,7 +101,7 @@ export default function CreateStudentPage() {
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6 bg-background rounded-lg border p-6">
+      <form onSubmit={handleSubmit} className="surface space-y-8 p-5 sm:p-7">
         {/* Required Section */}
         <div>
           <h3 className="font-semibold mb-4">Required Information</h3>
