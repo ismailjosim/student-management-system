@@ -5,6 +5,8 @@ import { MongoClient } from 'mongodb';
 
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB_NAME || 'student-management';
+const googleClientId = process.env.BETTER_AUTH_GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET;
 
 if (!uri) {
   throw new Error('Please define the MONGODB_URI environment variable');
@@ -27,6 +29,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  socialProviders:
+    googleClientId && googleClientSecret
+      ? {
+          google: {
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+          },
+        }
+      : {},
   secret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustedOrigins: [
     process.env.BETTER_AUTH_URL,

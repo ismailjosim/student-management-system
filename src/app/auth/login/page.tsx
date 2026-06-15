@@ -2,12 +2,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
+import { PasswordInput } from '@/components/auth/PasswordInput';
+import { BrandLogo } from '@/components/BrandLogo';
 import { authClient } from '@/lib/auth-client';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ArrowRight, CheckCircle2, GraduationCap, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
@@ -17,7 +20,11 @@ function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const requestedCallbackUrl = searchParams.get('callbackUrl');
+  const callbackUrl =
+    requestedCallbackUrl?.startsWith('/') && !requestedCallbackUrl.startsWith('//')
+      ? requestedCallbackUrl
+      : '/dashboard';
   const errorFromUrl = searchParams.get('error');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,7 +52,7 @@ function LoginContent() {
           router.push(callbackUrl);
           router.refresh();
         },
-        onError: (ctx) => {
+        onError: (ctx: { error: { message?: string } }) => {
           const message = ctx.error.message || 'Login failed';
           setError(message);
           toast.error(message);
@@ -59,12 +66,11 @@ function LoginContent() {
     <div className="grid min-h-screen bg-background lg:grid-cols-[1.05fr_.95fr]">
       <div className="relative hidden overflow-hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
         <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_25%_20%,white_0,transparent_32%),radial-gradient(circle_at_80%_80%,white_0,transparent_24%)]" />
-        <div className="relative flex items-center gap-3 text-lg font-bold">
-          <span className="grid size-10 place-items-center rounded-xl bg-white/15">
-            <GraduationCap className="size-5" />
-          </span>
-          MentorTrack
-        </div>
+        <BrandLogo
+          className="relative"
+          imageClassName="size-12 rounded-xl bg-white/95 p-1 object-contain shadow-sm"
+          textClassName="text-lg font-bold"
+        />
         <div className="relative max-w-xl">
           <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-primary-foreground/65">
             Student success, organized
@@ -90,12 +96,11 @@ function LoginContent() {
       <div className="flex items-center justify-center px-5 py-10 sm:px-10">
         <div className="w-full max-w-md">
           <div className="mb-8 lg:hidden">
-            <div className="mb-6 flex items-center gap-3 font-bold">
-              <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-                <GraduationCap className="size-5" />
-              </span>
-              MentorTrack
-            </div>
+            <BrandLogo
+              className="mb-6"
+              imageClassName="size-12 object-contain"
+              textClassName="font-bold"
+            />
           </div>
           <p className="text-sm font-bold text-primary">Welcome back</p>
           <h2 className="mt-2 text-3xl font-bold tracking-[-0.04em]">Sign in to your workspace</h2>
@@ -120,6 +125,14 @@ function LoginContent() {
               </div>
             )}
 
+            <GoogleAuthButton callbackUrl={callbackUrl} label="Continue with Google" />
+
+            <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              <span>or continue with email</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="email" className="mb-2 block text-sm font-semibold">
@@ -140,9 +153,8 @@ function LoginContent() {
                 <label htmlFor="password" className="mb-2 block text-sm font-semibold">
                   Password
                 </label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"

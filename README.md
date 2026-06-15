@@ -1,597 +1,212 @@
-# MentorTrack - Student Mentorship Management System
+# MentorTrack
 
-A comprehensive Next.js application for managing student mentorship programs with real-time tracking of assignments, call logs, follow-ups, and student progress. Built with modern web technologies including TypeScript, MongoDB, and Next.js App Router.
+MentorTrack is a multi-user student mentorship management system for tracking cohort progress, assignments, outreach calls, and scheduled follow-ups from one workspace.
 
----
+Built with Next.js App Router, TypeScript, MongoDB, Better Auth, and Tailwind CSS.
 
-## 📋 Table of Contents
+## Features
 
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Installation](#-installation)
-- [Environment Setup](#-environment-setup)
-- [Running the Application](#-running-the-application)
-- [Project Structure](#-project-structure)
-- [Core Modules](#-core-modules)
-- [API Documentation](#-api-documentation)
-- [Database Schema](#-database-schema)
-- [Development](#-development)
-- [Troubleshooting](#-troubleshooting)
+### Dashboard and analytics
 
----
+- Cohort-level statistics for total, active, at-risk, and completed students
+- Paginated students-at-risk table and prioritized call queue
+- Assignment completion statistics across assignments `A-01` through `A-10`
+- Submission distribution and progress visualizations
+- Skeleton loading, client caching, and mutation-based cache invalidation
 
-## ✨ Features
+### Student management
 
-### Student Management
+- Create, view, update, and delete student records
+- Detailed student profiles with progress, assignments, call history, and follow-ups
+- Search, pagination, and filters for status, progress, group, and device
+- Student status tracking: `On Track`, `Behind`, `At Risk`, `Dropped`, and `Completed`
+- CSV and Excel import with preview, validation, and matching
+- Export filtered student and outreach data
 
-- **Complete Student Roster** - View, create, update, and delete students
-- **Advanced Search & Filtering** - Search by name, email, phone, or status
-- **Bulk Import** - Import students via CSV/XLSX with preview and validation
-- **Student Profiles** - Detailed student information with assignments, call logs, and follow-ups
-- **Status Tracking** - Monitor student status (On Track, Behind, At Risk, Dropped, Completed)
+### Assignment tracking
 
-### Assignment Tracking
+- Track ten assignments per student
+- Assignment states: `PENDING`, `SUBMITTED`, and `COMPLETED`
+- Individual and bulk assignment updates
+- Match uploaded email lists before applying bulk changes
+- Detect missed assignments and students falling behind
+- Track the current live assignment for the cohort
 
-- **10-Assignment System** - Track up to 10 assignments per student
-- **Status Management** - Mark assignments as pending, completed, or overdue
-- **Auto Failure Detection** - Automatically identifies students with 2+ consecutive missed assignments
-- **Bulk Operations** - Submit assignments for multiple students via email list
-- **Statistics** - Assignment completion rates and trends
+### Calls and follow-ups
 
-### Call Management
+- Log outreach calls with status, date, and notes
+- Automatically schedule a follow-up after a call
+- Track pending, overdue, and completed follow-ups
+- Generate a call queue from overdue follow-ups and missed released assignments
+- View call statistics and export call lists
 
-- **Call Queue** - Auto-prioritized list of students needing follow-up
-- **Call Logging** - Record call details with status, date, and notes
-- **Call Statistics** - Analytics on call frequency, success rates, and patterns
-- **Smart Prioritization** - Priority system based on overdue follow-ups and contact frequency
+### Authentication and workspace isolation
 
-### Follow-up System
+- Email and password registration and sign-in
+- Google OAuth sign-up and sign-in
+- MongoDB-backed sessions powered by Better Auth
+- Protected application routes with automatic login redirects
+- User-owned student, call-log, and follow-up data
+- Accessible password visibility controls
 
-- **Auto Follow-ups** - Automatically creates follow-ups 7 days after calls
-- **Overdue Tracking** - Identifies overdue follow-ups
-- **Status Management** - Track follow-up progress (pending, completed, overdue)
-- **Smart Reminders** - Dashboard shows students needing follow-up
+### Interface
 
-### Dashboard & Analytics
+- Responsive desktop and mobile navigation
+- Light and dark themes
+- Reusable tables, forms, cards, filters, modals, and feedback components
+- Toast notifications and loading states for user actions
 
-- **Real-time Statistics** - Overall metrics and KPIs
-- **Failing Students Table** - Quick view of at-risk students
-- **Call Queue** - Priority-sorted students for outreach
-- **Submission Distribution** - Visual chart of assignment completion
-- **Assignment Statistics** - Completion trends and patterns
+## Tech Stack
 
-### Data Export
+| Area | Technology |
+| --- | --- |
+| Framework | Next.js 16 App Router |
+| UI | React 19, Tailwind CSS 4, Radix UI, shadcn, Lucide |
+| Language | TypeScript 5 |
+| Database | MongoDB, Mongoose, MongoDB Node.js driver |
+| Authentication | Better Auth with MongoDB adapter and Google OAuth |
+| Validation | Zod |
+| Charts | Recharts |
+| Import and export | ExcelJS, XLSX, CSV |
+| Theming | next-themes |
 
-- **Excel Export** - Export call lists and student data to Excel format
-- **Formatted Reports** - Professional call list exports with student details
+## Getting Started
 
-### Authentication & Authorization
+### Requirements
 
-- **Secure Login** - Email and password-based authentication
-- **Role-based Access** - Admin, Coordinator, and Viewer roles
-- **Session Management** - 24-hour JWT-based sessions
-- **Middleware Protection** - Automatic route protection and redirects
+- Node.js `20.9.0` or newer
+- pnpm
+- MongoDB Atlas or a local MongoDB server
+- A Google Cloud OAuth client for Google authentication
 
----
-
-## 🛠️ Tech Stack
-
-- **Frontend Framework**: Next.js 16.2.6 (App Router)
-- **Language**: TypeScript 5
-- **Styling**: Tailwind CSS 4
-- **Database**: MongoDB + Mongoose 9.6.2
-- **Authentication**: NextAuth.js 5.0 (Beta)
-- **UI Components**: Radix UI, Tabler Icons, Lucide React
-- **Data Export**: ExcelJS, XLSX
-- **Form Validation**: Zod
-- **Package Manager**: pnpm
-- **Build Tool**: Next.js built-in
-
----
-
-## 📥 Installation
-
-### Prerequisites
-
-- **Node.js**: 18.17 or higher
-- **pnpm**: 8 or higher (or npm/yarn)
-- **MongoDB**: Atlas account or local instance
-- **Git**: For cloning the repository
-
-### Setup Steps
+### Installation
 
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd student-management-system
-
-# Install dependencies
 pnpm install
-
-# Create environment file
-cp .env.example .env.local
 ```
 
----
-
-## 🔐 Environment Setup
-
-Create a `.env.local` file in the root directory with the following variables:
+Create a `.env` file in the project root:
 
 ```env
-# Database
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/mentortrack
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>/<database>
+MONGODB_DB_NAME=student-management
 
-# NextAuth
-NEXTAUTH_SECRET=your-secret-key-here
+BETTER_AUTH_SECRET=<long-random-secret>
+BETTER_AUTH_URL=http://localhost:3000
 NEXT_PUBLIC_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3000
 
-# Environment
-ENVIRONMENT=development
-NODE_ENV=development
+BETTER_AUTH_GOOGLE_CLIENT_ID=<google-oauth-client-id>
+BETTER_AUTH_GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
 ```
 
-**Generate NEXTAUTH_SECRET:**
+Generate an authentication secret with:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+openssl rand -base64 32
 ```
 
----
-
-## 🚀 Running the Application
-
-### Development Mode
+Start the development server:
 
 ```bash
-# Start development server
 pnpm dev
 ```
 
-The application will be available at `http://localhost:3000`
+Open [http://localhost:3000](http://localhost:3000).
 
-### Production Build
+## Google OAuth Setup
+
+1. Open Google Cloud Console and create or select a project.
+2. Configure the OAuth consent screen.
+3. Create an OAuth 2.0 Client ID for a Web application.
+4. Add `http://localhost:3000` as an authorized JavaScript origin.
+5. Add this authorized redirect URI:
+
+```text
+http://localhost:3000/api/auth/callback/google
+```
+
+For production, add the equivalent origin and callback using the deployed HTTPS domain, then update the auth URL environment variables.
+
+## Commands
 
 ```bash
-# Build for production
-pnpm build
-
-# Start production server
-pnpm start
+pnpm dev          # Start the development server
+pnpm build        # Create a production build
+pnpm start        # Run the production server
+pnpm lint         # Run ESLint
+pnpm type-check   # Run the TypeScript checker
+pnpm format       # Format TypeScript, TSX, and JSON files
 ```
 
-### Database Setup
+## Main Routes
 
-```bash
-# Initialize database with collections
-pnpm db:init
+| Route | Purpose |
+| --- | --- |
+| `/auth/login` | Email or Google sign-in |
+| `/auth/register` | Email or Google account creation |
+| `/dashboard` | Cohort statistics, risks, assignments, and call queue |
+| `/students` | Searchable and filterable student roster |
+| `/students/new` | Create a student |
+| `/students/import` | Import students from CSV or Excel |
+| `/students/[id]` | Student profile, tracking, calls, and follow-ups |
+| `/bulk-update` | Bulk assignment, mentorship, and student updates |
 
-# Seed sample data
-pnpm db:seed
+## API Overview
 
-# Seed test users (admin, coordinator, viewer)
-pnpm db:seed-users
-```
+The application exposes authenticated route handlers under `src/app/api`.
 
-### Other Commands
+- `/api/auth/[...all]` - Better Auth endpoints
+- `/api/students` - Student CRUD, search, import, matching, analysis, and bulk updates
+- `/api/students/[id]/assignments` - Embedded assignment management
+- `/api/call-logs` - Call-log CRUD
+- `/api/follow-ups` - Follow-up CRUD, completion, and upcoming schedules
+- `/api/call-queue` - Prioritized outreach queue
+- `/api/assignments` - Assignment operations, bulk submission, statistics, and timeline
+- `/api/dashboard` - Dashboard summaries, assignment statistics, and failing students
+- `/api/settings` - Current cohort assignment settings
+- `/api/export/call-list` - Outreach list export
+- `/api/health` - Application and database health check
 
-```bash
-# Run TypeScript type checker
-pnpm type-check
+API records are scoped to the authenticated user where ownership applies.
 
-# Run ESLint
-pnpm lint
+## Project Structure
 
-# Format code with Prettier
-pnpm format
-```
-
----
-
-## 📁 Project Structure
-
-```
+```text
 src/
-├── app/                              # Next.js App Router
-│   ├── api/                         # API routes
-│   │   ├── students/                # Student endpoints
-│   │   ├── assignments/             # Assignment endpoints
-│   │   ├── call-logs/               # Call log endpoints
-│   │   ├── call-queue/              # Call queue endpoint
-│   │   ├── call-statistics/         # Analytics endpoints
-│   │   ├── follow-ups/              # Follow-up endpoints
-│   │   ├── dashboard/               # Dashboard stats
-│   │   ├── export/                  # Data export endpoints
-│   │   ├── health/                  # Health check
-│   │   ├── seed/                    # Data seeding
-│   │   └── auth/                    # Authentication routes
-│   ├── auth/                        # Auth pages
-│   │   ├── login/page.tsx
-│   │   └── error/page.tsx
-│   ├── dashboard/page.tsx           # Main dashboard
-│   ├── students/page.tsx            # Student roster
-│   ├── students/[id]/page.tsx       # Student detail
-│   ├── students/new/page.tsx        # Create student
-│   ├── students/import/page.tsx     # Import students
-│   ├── bulk-update/page.tsx         # Bulk operations
-│   ├── layout.tsx                   # Root layout
-│   ├── page.tsx                     # Home (redirects to dashboard)
-│   ├── globals.css                  # Global styles
-│   └── error.tsx                    # Error boundary
-│
-├── components/                      # React components
-│   ├── Layout/                      # Layout components (Navbar, Sidebar, etc.)
-│   ├── Dashboard/                   # Dashboard components
-│   ├── Students/                    # Student-related components
-│   ├── Common/                      # Reusable UI components
-│   ├── Form/                        # Form components and fields
-│   ├── Table/                       # Table components
-│   └── ui/                          # Base UI components
-│
-├── lib/                             # Utilities and configurations
-│   ├── mongodb.ts                   # MongoDB connection (singleton)
-│   ├── api-client.ts                # Typed API client
-│   ├── validators.ts                # Zod validation schemas
-│   ├── utils.ts                     # Helper functions
-│   ├── constants.ts                 # App constants
-│   ├── file-parser.ts               # CSV/XLSX parser
-│   ├── export.ts                    # Excel export utilities
-│   ├── follow-up-logic.ts           # Follow-up business logic
-│   ├── assignment-logic.ts          # Assignment business logic
-│   └── cn.ts                        # Tailwind class merger
-│
-├── models/                          # Mongoose schemas
-│   ├── Student.ts
-│   ├── Assignment.ts
-│   ├── CallLog.ts
-│   ├── FollowUp.ts
-│   └── User.ts
-│
-├── interfaces/                      # TypeScript interfaces
-│   ├── student.interface.ts
-│   ├── assignment.interface.ts
-│   ├── callLog.interface.ts
-│   └── followUp.interface.ts
-│
-├── types/                           # Global types
-│   ├── index.ts
-│   └── auth.d.ts
-│
-├── services/                        # Business logic services
-│   └── student.service.ts
-│
-├── auth.config.ts                   # NextAuth configuration
-├── auth.ts                          # NextAuth export
-└── middleware.ts                    # Request middleware
-
-public/                             # Static assets
-scripts/                            # Database scripts
-├── seed.ts                          # Seed students
-├── seed-users.ts                    # Seed users
-└── init.ts                          # Initialize database
+|-- app/
+|   |-- api/                 # Next.js route handlers
+|   |-- auth/                # Login, registration, and auth errors
+|   |-- dashboard/           # Analytics dashboard
+|   |-- students/            # Student roster, import, create, and detail pages
+|   `-- bulk-update/         # Bulk workflow page
+|-- components/
+|   |-- auth/                # Google auth and password controls
+|   |-- Dashboard/           # Dashboard cards, charts, queues, and tables
+|   |-- Students/            # Student profile and tracking UI
+|   |-- Layout/              # App shell and navigation
+|   |-- bulk-update/         # Bulk update workflows
+|   `-- ui/                  # Shared UI primitives
+|-- lib/                     # Auth, database, cache, parsing, and business logic
+|-- models/                  # Mongoose models
+|-- services/                # Domain services
+|-- interfaces/              # Domain interfaces
+`-- types/                   # Shared application types
 ```
 
----
+## Data Model
 
-## 🎯 Core Modules
+The core domain includes:
 
-### Students Module
+- **Student**: identity, contact, cohort information, mentorship state, progress, and embedded assignments
+- **Assignment**: assignment number, state, and submission/completion date
+- **CallLog**: outreach status, timestamp, and notes
+- **FollowUp**: scheduled date, priority, status, and notes
+- **Settings**: current active cohort assignment
+- **Better Auth collections**: users, sessions, accounts, and verification records
 
-**Endpoints:**
+## License
 
-- `GET /api/students` - Get paginated students with filters
-- `GET /api/students/[id]` - Get student with all relations
-- `POST /api/students` - Create new student
-- `PUT /api/students/[id]` - Update student
-- `DELETE /api/students/[id]` - Delete student
-- `GET /api/students/search` - Search students
-- `POST /api/students/import` - Batch import with preview
-- `POST /api/students/bulk-update` - Bulk update multiple students
-
-**Features:**
-
-- Pagination, sorting, and filtering
-- Email validation and uniqueness
-- Device tracking (phone number, device model)
-- Demographic data (name, division, institute)
-- Academic tracking (institute division, shift)
-
-### Assignments Module
-
-**Endpoints:**
-
-- `GET /api/assignments` - List with filters
-- `GET /api/assignments/[id]` - Get assignment details
-- `POST /api/assignments` - Create assignment
-- `PUT /api/assignments/[id]` - Update assignment
-- `DELETE /api/assignments/[id]` - Delete assignment
-- `POST /api/assignments/bulk-submit` - Submit for multiple students
-- `GET /api/assignments/stats` - Assignment statistics
-
-**Features:**
-
-- 10 assignments per student
-- Status tracking (pending, completed, overdue)
-- Auto-failure detection (2+ consecutive misses)
-- Due date tracking
-
-### Call Logs Module
-
-**Endpoints:**
-
-- `GET /api/call-logs` - List with date range filtering
-- `GET /api/call-logs/[id]` - Get call details
-- `POST /api/call-logs` - Create call log
-- `PUT /api/call-logs/[id]` - Update call log
-- `DELETE /api/call-logs/[id]` - Delete call log
-
-**Features:**
-
-- Call status tracking (RECEIVED, NOT_RECEIVED, PHONE_OFF, etc.)
-- Date and time logging
-- Notes and outcome tracking
-- Auto follow-up creation 7 days later
-
-### Follow-ups Module
-
-**Endpoints:**
-
-- `GET /api/follow-ups` - List with filters
-- `GET /api/follow-ups/upcoming` - Get upcoming follow-ups
-- `POST /api/follow-ups` - Create follow-up
-- `PUT /api/follow-ups/[id]` - Update follow-up
-- `DELETE /api/follow-ups/[id]` - Delete follow-up
-
-**Features:**
-
-- Auto-creation after calls
-- Status tracking (pending, overdue, completed)
-- Due date management
-- Overdue detection and alerts
-
-### Dashboard Module
-
-**Endpoints:**
-
-- `GET /api/dashboard/stats` - Overall statistics
-- `GET /api/dashboard/failing-students` - At-risk students
-- `GET /api/call-queue` - Priority-sorted call queue
-- `GET /api/call-statistics` - Call analytics
-
-**Metrics:**
-
-- Total students and status breakdown
-- Assignment completion rates
-- Call frequency and success rates
-- Follow-up status
-
----
-
-## 📊 Database Schema
-
-### Student Collection
-
-```typescript
-{
-  _id: ObjectId
-  name: string
-  email: string (unique)
-  phone: string
-  division: string
-  institute: string
-  instituteDiv: string
-  shift: string
-  deviceModel: string
-  deviceIdentifier: string
-  currentStatus: enum["On Track", "Behind", "At Risk", "Dropped", "Completed"]
-  mentorshipJoiningStatus: string
-  notes: string
-  createdAt: Date
-  updatedAt: Date
-}
-```
-
-### Assignment Collection
-
-```typescript
-{
-  _id: ObjectId
-  studentId: ObjectId (ref: Student)
-  assignmentNumber: number (1-10)
-  status: enum["pending", "completed", "overdue"]
-  dueDate: Date
-  completedAt: Date | null
-  createdAt: Date
-  updatedAt: Date
-}
-```
-
-### CallLog Collection
-
-```typescript
-{
-  _id: ObjectId
-  studentId: ObjectId (ref: Student)
-  date: Date
-  status: enum["RECEIVED", "NOT_RECEIVED", "PHONE_OFF", "BUSY", "INVALID_NUMBER", "DID_NOT_ANSWER"]
-  outcome: string
-  notes: string
-  createdAt: Date
-  updatedAt: Date
-}
-```
-
-### FollowUp Collection
-
-```typescript
-{
-  _id: ObjectId
-  studentId: ObjectId (ref: Student)
-  callLogId: ObjectId (ref: CallLog)
-  dueDate: Date
-  status: enum["pending", "overdue", "completed"]
-  notes: string
-  createdAt: Date
-  updatedAt: Date
-}
-```
-
-### User Collection
-
-```typescript
-{
-  _id: ObjectId
-  email: string (unique)
-  password: string (hashed)
-  name: string
-  role: enum["admin", "coordinator", "viewer"]
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-```
-
----
-
-## 🔧 Development
-
-### Development Workflow
-
-1. **Start Dev Server**
-
-   ```bash
-   pnpm dev
-   ```
-
-2. **Make Changes** - Edit files in `src/` directory
-
-3. **Type Check**
-
-   ```bash
-   pnpm type-check
-   ```
-
-4. **Format Code**
-
-   ```bash
-   pnpm format
-   ```
-
-5. **Build & Test**
-
-   ```bash
-   pnpm build
-   ```
-
-### Adding New Features
-
-1. **Create API Route** - Add handler in `src/app/api/[resource]/route.ts`
-2. **Define Schema** - Add Zod validator in `src/lib/validators.ts`
-3. **Create Model** - Add Mongoose model in `src/models/`
-4. **Add Component** - Create React component in `src/components/`
-5. **Add Page** - Create page in `src/app/[feature]/page.tsx`
-6. **Type Safety** - Define interfaces in `src/interfaces/`
-
-### Code Style
-
-- **TypeScript** - Strict mode enabled
-- **Prettier** - Automatic code formatting
-- **ESLint** - Code linting with Next.js rules
-- **Tailwind CSS** - Utility-first CSS framework
-
----
-
-## 🐛 Troubleshooting
-
-### Database Connection Issues
-
-**Problem**: MongoDB connection failing
-
-```
-Solution:
-1. Verify MONGODB_URI in .env.local
-2. Check MongoDB Atlas IP whitelist
-3. Ensure credentials are correct
-4. Try connecting directly: mongosh <connection-string>
-```
-
-### Build Errors
-
-**Problem**: TypeScript compilation errors
-
-```bash
-# Clear cache and rebuild
-rm -rf .next
-pnpm build
-```
-
-**Problem**: Module not found
-
-```bash
-# Reinstall dependencies
-rm -rf node_modules pnpm-lock.yaml
-pnpm install
-```
-
-### Authentication Issues
-
-**Problem**: Session not persisting
-
-```
-Solution:
-1. Verify NEXTAUTH_SECRET is set in .env.local
-2. Clear browser cookies
-3. Check if middleware.ts is present
-4. Verify auth.config.ts callbacks are correct
-```
-
-### API Errors
-
-**Problem**: 500 errors from API
-
-```bash
-# Check server logs in development
-# Verify MongoDB is running
-# Check network requests in browser DevTools
-```
-
----
-
-## 📞 Support
-
-For issues or questions:
-
-1. Check this documentation first
-2. Review error messages and logs
-3. Verify environment variables are set correctly
-4. Check MongoDB connection and data
-
----
-
-## 📄 License
-
-This project is private and restricted to authorized users only.
-
----
-
-## 🎓 Version
-
-- **Application Version**: 0.1.0
-- **Schema Version**: 1.0.0
-- **Last Updated**: May 16, 2026
-
----
-
-## ✅ Status
-
-**Development Status**: 🟢 **PRODUCTION READY**
-
-All core features are implemented and functional:
-
-- ✅ Student management and tracking
-- ✅ Assignment system with auto-failure detection
-- ✅ Call logging and follow-up automation
-- ✅ Real-time dashboard and analytics
-- ✅ Batch import and export
-- ✅ Authentication and authorization
-- ✅ Role-based access control
+Add the project license here before public distribution.

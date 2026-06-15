@@ -1,10 +1,19 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive, nosnippet, noimageindex',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
-
-// Note: NextAuth v5 uses middleware, not withAuth plugin
-// Middleware is configured in src/middleware.ts

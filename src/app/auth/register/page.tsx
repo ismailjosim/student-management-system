@@ -2,12 +2,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
+import { PasswordInput } from '@/components/auth/PasswordInput';
+import { BrandLogo } from '@/components/BrandLogo';
 import { authClient } from '@/lib/auth-client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { ArrowRight, GraduationCap, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -46,7 +49,7 @@ export default function RegisterPage() {
           router.push('/dashboard');
           router.refresh();
         },
-        onError: (ctx) => {
+        onError: (ctx: { error: { message?: string } }) => {
           const message = ctx.error.message || 'Registration failed';
           setError(message);
           toast.error(message);
@@ -61,12 +64,11 @@ export default function RegisterPage() {
     <div className="grid min-h-screen bg-background lg:grid-cols-[.9fr_1.1fr]">
       <div className="flex items-center justify-center px-5 py-10 sm:px-10">
         <div className="w-full max-w-md">
-          <div className="mb-8 flex items-center gap-3 font-bold">
-            <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-              <GraduationCap className="size-5" />
-            </span>
-            MentorTrack
-          </div>
+          <BrandLogo
+            className="mb-8"
+            imageClassName="size-12 object-contain"
+            textClassName="font-bold"
+          />
           <p className="text-sm font-bold text-primary">Start your workspace</p>
           <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em]">Create your account</h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -79,6 +81,14 @@ export default function RegisterPage() {
                 <p className="text-destructive text-sm">{error}</p>
               </div>
             )}
+
+            <GoogleAuthButton label="Sign up with Google" />
+
+            <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              <span>or sign up with email</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -114,9 +124,8 @@ export default function RegisterPage() {
                 <label htmlFor="password" className="mb-2 block text-sm font-semibold">
                   Password
                 </label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"

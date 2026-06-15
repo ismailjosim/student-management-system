@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  GraduationCap,
   LayoutDashboard,
   Users,
   RefreshCw,
@@ -14,9 +13,9 @@ import {
   Command,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { APP_NAME } from '@/lib/constants';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
+import { BrandLogo } from '@/components/BrandLogo';
 import { ThemeToggler } from './ThemeToggler';
 import { authClient } from '@/lib/auth-client';
 
@@ -69,11 +68,12 @@ export function Navbar() {
         <Link
           href={PAGE_ROUTES.DASHBOARD}
           className="group flex items-center gap-3 font-bold tracking-tight"
+          aria-label="MentorTrack dashboard"
         >
-          <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20 transition-transform group-hover:scale-[1.03]">
-            <GraduationCap className="size-5" />
-          </span>
-          <span className="hidden text-lg sm:inline">{APP_NAME}</span>
+          <BrandLogo
+            imageClassName="size-10 object-contain transition-transform group-hover:scale-[1.04]"
+            textClassName="hidden text-lg sm:inline"
+          />
         </Link>
 
         {/* Desktop Nav */}
